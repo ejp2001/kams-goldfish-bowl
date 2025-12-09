@@ -1,6 +1,3 @@
-# Keep original files local only (not in repository)
-originals/
-
 # Common system files
 .DS_Store
 Thumbs.db
