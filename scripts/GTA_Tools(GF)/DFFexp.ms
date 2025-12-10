@@ -2880,7 +2880,7 @@ fn wCharDFFout f obj BonesAry MMC TUV CPV NOR ExSc  ver bodypart addlock = (
 	GL_length_add = wGeometryList f obj ver
     
 	SkinPlugData = CreateSkinData obj
-	tmsh = RemapGeo obj	SkinPlugData   
+	tmsh = RemapGeo obj	SkinPlugData
  
     if tmsh != undefined then tmsh[1] = CondenseMtlByID tmsh[1]
     --format "tmsh[3]:%\n" tmsh[3][1].count
