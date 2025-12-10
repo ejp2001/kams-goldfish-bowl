@@ -3,3 +3,12 @@
 Thumbs.db
 *.bak
 *~
+
+# 3ds Max files
+*.max.bak
+*.max~
+autoback/
+previews/
+
+# Reference files (not for public distribution)
+originals/
