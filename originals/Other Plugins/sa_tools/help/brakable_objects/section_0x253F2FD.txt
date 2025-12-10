@@ -1,0 +1,68 @@
+
+
+------
+unknown1 byte
+unknown2 byte
+unknown3 byte
+unknown4 byte -- like nvc 4 first bytes
+
+int (4 byte) -- always 1
+int (4 byte) -- vertex count
+int (4 byte) -- unknown (set to 0 - nothing changes)
+
+int (4 byte) -- unknown (set to 0 - nothing changes)
+int (4 byte) -- unknown (set to 0 - nothing changes)
+int (4 byte) -- faces count
+int (4 byte) -- unknown (set to 0 - nothing changes)
+
+int (4 byte) -- unknown (set to 0 - nothing changes)
+int (4 byte) -- unknown (set to 0 - nothing changes)
+int (4 byte) -- objects count (parts count) or (Mat ID count)
+int (4 byte) -- unknown (set to 0 - nothing changes)
+
+int (4 byte) -- unknown (set to 0 - nothing changes)
+int (4 byte) -- unknown (set to 0 - nothing changes)
+
+---- array [1..vertex count] of point3 (vertices)
+
+     floatX (4 byte)
+     floatY (4 byte)
+     floatZ (4 byte)
+
+---- array [1..vertex count] of point2 (UV coords)
+
+     floatU (4 byte)
+     floatV (4 byte)
+
+---- array [1..vertex count] of Vertex Color
+
+     byte - R
+     byte - G
+     byte - B
+     byte - A
+
+---- array [1..Faces count] of faces
+
+     int (2 byte) - vert1
+     int (2 byte) - vert2
+     int (2 byte) - vert3
+
+---- array [1..Faces count] of MatID
+
+     int (2 byte)
+
+---- array [1..Parts count] of Texture Names
+
+     32 byte string
+
+---- array [1..Parts count] of Texture Alpha Names
+
+     32 byte string
+
+---- array [1..Parts count] of UNKNOWN
+
+     float (4 byte) -- often 1.0
+     float (4 byte) -- often 1.0
+     float (4 byte) -- often 1.0
+
+-----------------------------------------------------------------------------------------------------------------------------

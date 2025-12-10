@@ -1,0 +1,20 @@
+1. create models... Set up a hierarchy... Create DUMMI and call it the same name
+    will be called DFF... DUMMI should be at the head of the hierarchy. (Figure 1)
+2. Select all objects with DUMMI and export to DFF
+3. Animate objects.
+4. Run the script, select only DUMMI and click get hierarhy selected.
+    All child objects will appear in the list... If the object does not participate in
+    animation, set the EXCLUDE flag (red) to it (Figure 2)
+    If the object only rotates (without moving), then set the SKIP POS flag to it. (Figure 3)
+   
+    In the pictures, red - does not participate in animation, blue - rotates around its axis,
+    green - moves up/down (you need to remove the SKIP POS flag), yellow - rotates...
+
+5. We all press export if you need to create an animation file, or APPEND to add to
+    animations.
+
+6. In ID, register the object in the ANIM/END section like this
+ 
+      ID, model_name, TXD_name, ANIMATION, FAR, FLAGS
+
+    The rest is the same as in standard map objects - KOL, THD, IPL

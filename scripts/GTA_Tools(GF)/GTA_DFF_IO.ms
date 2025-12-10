@@ -1149,7 +1149,9 @@ fn checkObjL objArr = (
 											) else format "   - Error in mesh!\n"
 										)
 									) catch (
-										messageBox " [Error]: write geometry" title: "Error export dff"
+										local errMsg = getCurrentException()
+										format "   [!] Exception during export: %\n" errMsg
+										messageBox (" [Error]: write geometry\n\n" + errMsg) title: "Error export dff"
 									)
 									
 									exp_lockDFF = false
@@ -1268,11 +1270,15 @@ fn checkObjL objArr = (
 										interfaceUpdate
 										if exp_lockDFF == true then format "   [!] noBack lock dff is enabled!\n"
 										format " = info =\n   geometry: %\n   light:%\n   dummy: %\n" geo_count light_count help_count
+										local result = undefined
 										try (
-											DFFout f Allobjects false true CPV.checked NOR.checked 1.0 ver SAColBase colcase lockdff.checked
+											result = DFFout f Allobjects false true CPV.checked NOR.checked 1.0 ver SAColBase colcase lockdff.checked
 										) catch (
-											messageBox " [Error]: write geometry" title: "Error export dff"
+											local errMsg = getCurrentException()
+											format "   [!] Exception during export: %\n" errMsg
+											messageBox (" [Error]: write geometry\n\n" + errMsg) title: "Error export dff"
 										)
+										if result == false then format "   [!] Warning: DFFout returned false (some objects couldn't be exported)\n"
 										fclose f
 										DFFexPara.pb.value = 100.0
 										popPrompt()

@@ -1,0 +1,16 @@
+
+
+
+
+- fixed importing of the original camera data
+- fixed camera Z position problem
+- added import/export of camera roll angle)
+- changed the way to calculate camera FOV(zoom factor): now it matches the viewport view and can be adjusted in a script window manually
+
+
+
+
+
+
+
+

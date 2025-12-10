@@ -278,44 +278,41 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 					with animate on at time tm (
 						--SAbone.rotation = rot
 						in coordsys parent (
-							bkup = SAbone.pos
 							SAbone.pos = [0,0,0]
 							SAbone.rotation = rot
-							SAbone.pos = bkup
+							if noPOSkey then (
+								-- Don't create position keys, just keep original position
+								deleteKeys SAbone.pos.controller
+							) else (
+								-- Create position keys if KeyType 4 and not skipping
+								if KeyType == 4 then (
+									if SAbone.parent != undefined then
+										SAbone.pos = tlt
+									else SAbone.pos = tlt
+									pc = SAbone.pos.controller
+									tk = (getKeyIndex pc tm) 
+									try (
+										pc.keys[tk].OutTangentType = #linear
+										pc.keys[tk].InTangentType = #linear
+									)catch()
+								) else (
+									-- KeyType 3 (rotation only) - delete any position keys
+									deleteKeys SAbone.pos.controller
+								)
+							)
 						--	format "->%      time  = %\n" SAbone.rotation tm
 							--format "->%      time  = %\n" SAbone.pos tm
 						)
 						if tm == 0.0 then (
 						with animate on at time (tm+1) (
 							in coordsys parent (
-							bkup = SAbone.pos
 							SAbone.pos = [0,0,0]
 							SAbone.rotation = rot
-							SAbone.pos = bkup
 						)
 							deletekey SABone.rotation.controller 2
 							deletekey SABone.pos.controller 2
 						)
 							)
-						if (KeyType == 4)AND(noPOSkey==False) then (
-							format "hהההה"
-							if SAbone.parent != undefined then
-								in coordsys parent ( SAbone.pos = tlt )
-							else SAbone.pos = tlt
-							pc = SAbone.pos.controller
-							tk = (getKeyIndex pc tm) 
-							try (
-								pc.keys[tk].OutTangentType = #linear
-								pc.keys[tk].InTangentType = #linear
-							)catch()
-						) else (
-							deleteKeys SAbone.pos.controller 
-							if tm != stm then (
-								tk = numkeys SAbone.pos.controller
-								try ( deletekey SAbone.pos.controller tk
-									) catch()
-							)
-						)
 					)--end with animate
 				)--end if SAbone
 			)--end for j	

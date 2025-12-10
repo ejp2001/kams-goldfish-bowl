@@ -95,7 +95,7 @@ fn HasUVAnimation mtl = (
 	local bmap = undefined
 	
 	if isKindOf mtl GTA_Mtl then (
-		if mtl.colormap != undefined then bmap = mtl.colorMap
+		if mtl.colorMap != undefined then bmap = mtl.colorMap
 	) else if isKindOf mtl Standard then (
 		if mtl.DiffuseMap != undefined then bmap = mtl.DiffuseMap
 	)
@@ -120,7 +120,7 @@ fn HasUVAnimation mtl = (
 -- Get bitmap texture from material
 fn GetBitmapFromMaterial mtl = (
 	if isKindOf mtl GTA_Mtl then (
-		if mtl.colormap != undefined then return mtl.colorMap
+		if mtl.colorMap != undefined then return mtl.colorMap
 	) else if isKindOf mtl Standard then (
 		if mtl.DiffuseMap != undefined then return mtl.DiffuseMap
 	)
@@ -131,21 +131,29 @@ fn GetBitmapFromMaterial mtl = (
 fn CollectUVAnimMaterials objects = (
 	local animMats = #()
 	
+	format "       [DEBUG] Scanning % objects for UV animations...\n" objects.count
 	for obj in objects do (
 		if superclassof obj == GeometryClass then (
 			local mat = obj.material
 			if mat != undefined then (
+				format "       [DEBUG] Object '%' has material '%' (class: %)\n" obj.name mat.name (classof mat)
 				if classof mat == Multimaterial then (
 					for submat in mat where submat != undefined do (
-						if HasUVAnimation submat then (
+						local hasAnim = HasUVAnimation submat
+						format "       [DEBUG]   Submat '%' hasUVAnim: %\n" submat.name hasAnim
+						if hasAnim then (
 							if findItem animMats submat == 0 then append animMats submat
 						)
 					)
 				) else (
-					if HasUVAnimation mat then (
+					local hasAnim = HasUVAnimation mat
+					format "       [DEBUG]   Material '%' hasUVAnim: %\n" mat.name hasAnim
+					if hasAnim then (
 						if findItem animMats mat == 0 then append animMats mat
 					)
 				)
+			) else (
+				format "       [DEBUG] Object '%' has NO material\n" obj.name
 			)
 		)
 	)
@@ -195,8 +203,13 @@ fn WriteUVAnimDictionary f animMats ver = (
 			writeLong f 0 #unsigned             -- unknown
 			
 			-- Animation name (material name, padded to 32 bytes)
-			writeString f mtl.name
-			local nameLen = mtl.name.count + 1  -- +1 for null terminator
+			format "       [DEBUG] Writing UV dict entry for material: '%' (length: %)\n" mtl.name mtl.name.count
+			local matName = mtl.name
+			format "       [DEBUG] Material name bytes: "
+			for i = 1 to matName.count do format "% " (bit.intAsHex (bit.charAsInt matName[i]))
+			format "\n"
+			writeString f matName
+			local nameLen = matName.count + 1  -- +1 for null terminator
 			local padding = 32 - nameLen
 			if padding > 0 then for i = 1 to padding do writeByte f 0
 			
@@ -242,8 +255,13 @@ fn WriteMaterialAnimPLG f mtl ver = (
 	writeLong f 1 #unsigned  -- has animation
 	
 	-- Animation name (material name, padded to 32 bytes)
-	writeString f mtl.name
-	local nameLen = mtl.name.count + 1
+	format "     [DEBUG] Writing Material PLG for: '%' (length: %)\n" mtl.name mtl.name.count
+	local matName = mtl.name
+	format "     [DEBUG] Material name bytes: "
+	for i = 1 to matName.count do format "% " (bit.intAsHex (bit.charAsInt matName[i]))
+	format "\n"
+	writeString f matName
+	local nameLen = matName.count + 1
 	local padding = 32 - nameLen
 	if padding > 0 then for i = 1 to padding do writeByte f 0
 	
@@ -1884,9 +1902,37 @@ fn wMaterial f msh mtl ver = (
 			)
 		)
 
-		-- UV Animation PLG (if material has UV animation)
-		if gUVAnimEnabled and (HasUVAnimation mtl) then (
-			WriteMaterialAnimPLG f mtl ver
+		-- UV Animation PLG (if material has UV animation - SA only)
+		if (ver == 0X1803FFFF) and gUVAnimEnabled and (HasUVAnimation mtl) then (
+			-- Material Animation PLG (0x135) - links to dictionary
+			writeLong f 0x135
+			writeLong f 48
+			writeLong f ver
+			-- Struct (0x01)
+			writeLong f 0x01
+			writeLong f 36
+			writeLong f ver
+			-- Data
+			writeLong f 1 #unsigned  -- has animation
+			-- Animation name (material name, padded to 32 bytes)
+			format "     [DEBUG] Writing Material PLG for: '%' (length: %)\n" mtl.name mtl.name.count
+			local matName = mtl.name
+			format "     [DEBUG] Material name bytes: "
+			for i = 1 to matName.count do format "% " (bit.intAsHex (bit.charAsInt matName[i]))
+			format "\n"
+			writeString f matName
+			local animNameLen = matName.count + 1
+			local animPadding = 32 - animNameLen
+			if animPadding > 0 then for ii = 1 to animPadding do writeByte f 0
+			
+			-- UV Anim PLG (0x120) with flags - required for game engine
+			writeLong f 0x120
+			writeLong f 12
+			writeLong f ver
+			writeLong f 5 #unsigned  -- flags for UV anim
+			writeLong f 5 #unsigned
+			writeLong f 0 #unsigned
+			
 			format "     - UV Animation\n"
 		)
 
@@ -2552,19 +2598,31 @@ fn DFFout f Allobjects MMC TUV CPV NOR ExSc ver SAColBase noCol addlock = (
 	tmpObj = #()
 	pbUpdate()
 
-		SkinData = undefined
-		bonechain = undefined
-		
-		-- Collect and write UV Animation Dictionary (must be before CLUMP)
-		if gUVAnimEnabled then (
-			gUVAnimMaterialList = CollectUVAnimMaterials Allobjects
-			if gUVAnimMaterialList.count > 0 then (
-				WriteUVAnimDictionary f gUVAnimMaterialList ver
-			)
+	SkinData = undefined
+	bonechain = undefined
+	
+	-- Collect and write UV Animation Dictionary (must be before CLUMP - SA ONLY)
+	gUVAnimMaterialList = #()
+	format "     [DEBUG] gUVAnimEnabled = %\n" gUVAnimEnabled
+	format "     [DEBUG] Game version = 0x%\n" (bit.intAsHex ver)
+	if (ver == 0X1803FFFF) and gUVAnimEnabled then (
+		format "     [DEBUG] Collecting UV animations from % objects...\n" Allobjects.count
+		gUVAnimMaterialList = CollectUVAnimMaterials Allobjects
+		format "     [DEBUG] Found % materials with UV animation\n" gUVAnimMaterialList.count
+		format "     [DEBUG] Dictionary will contain these materials:\n"
+		for i = 1 to gUVAnimMaterialList.count do (
+			format "       [%] '%' (class: %)\n" i gUVAnimMaterialList[i].name (classof gUVAnimMaterialList[i])
 		)
-		
-		Clump_Start = ftell f
-		local ObjAry=#(),lightIDs=#(),geo_count=0, light_count=0, help_count=0
+		if gUVAnimMaterialList.count > 0 then (
+			WriteUVAnimDictionary f gUVAnimMaterialList ver
+		)
+	) else (
+		if gUVAnimEnabled then format "     [DEBUG] UV Animation export is DISABLED (not SA version)\n"
+		else format "     [DEBUG] UV Animation export is DISABLED (gUVAnimEnabled = false)\n"
+	)
+	
+	Clump_Start = ftell f
+	local ObjAry=#(),lightIDs=#(),geo_count=0, light_count=0, help_count=0
 		lightArr = #()
 		global all2dfxArr = #()  -- Array to hold all 2DFX objects (lights + dummies)
 		pbUpdate()
@@ -2697,15 +2755,19 @@ fn DFFout f Allobjects MMC TUV CPV NOR ExSc ver SAColBase noCol addlock = (
 			delete tmpMsh			
 			if tmsh != undefined then (
 				tmsh[1] = CondenseMtlByID tmsh[1]
-				--objExpName = ObjAry[i].name
-				format "\n   [%] %\n" i ObjAry[i].name 	
-				wGeometry f tmsh undefined MMC TUV CPV NOR ExSc undefined false ver
-								
-				 hasRef = getUserProp tmsh[1] "Ref"
-				if hasRef == true then append AtmRefAry true
-				else if (hasRef != undefined and (hasRef as integer) == 3) then append AtmRefAry 3 else append AtmRefAry false
-				
-				delete tmsh[1]
+			--objExpName = ObjAry[i].name
+			format "\n   [%] %\n" i ObjAry[i].name 	
+			wGeometry f tmsh undefined MMC TUV CPV NOR ExSc undefined false ver
+							
+			hasRef = getUserProp tmsh[1] "Ref"
+			-- Also check for UV animation (sets Ref flag for atomic extension)
+			if (ver == 0X1803FFFF) and gUVAnimEnabled and (ObjectHasUVAnimation ObjAry[i]) then (
+				if hasRef != true and hasRef != 3 then hasRef = true
+			)
+			if hasRef == true then append AtmRefAry true
+			else if (hasRef != undefined and (hasRef as integer) == 3) then append AtmRefAry 3 else append AtmRefAry false
+			
+			delete tmsh[1]
 			) else (
 				Noproblem = false
 				format "Can't export: %\n>>>This dff WON'T work<<<\n" ObjAry[i]

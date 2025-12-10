@@ -32,7 +32,6 @@ rollout DFF2dfx "2DFX" (
 	button fx_lght "LIGHT" width:155 height:24
 	button fx_prt "Particle" width:155 height:24
 	button fx_sgn "Ped Attractor" width:155 height:24
-	button fx_stm "Slotmachine" width:155 height:24
 	-- button fx_esc "Escalator" width:155 height:24  -- Type 2: Unknown/disabled
 	
 	on fx_lght pressed do (
@@ -584,39 +583,6 @@ rollout DFF2dfx "2DFX" (
 		try (closeRolloutFloater DFF2dfx_sgn_rol) catch () 
 		DFF2dfx_sgn_rol = newRolloutFloater "Ped Attractor" 220 420
 		addRollout DFF2dfx_sgn DFF2dfx_sgn_rol
-	)
-	
-	on fx_stm pressed do (
-		rollout DFF2dfx_stm "Sun Reflection export" (	
-			label txt1 "Sun Reflection (Type 4)" align:#left
-			label txt2 "Creates a sun glare effect on surfaces" align:#left offset:[0,-5]
-			label txt3 "" align:#left
-			button btn_sun_set "Set to selected DUMMY" width:180 height:30 offset:[0,5]
-			button btn_close_stm "Close" align:#center width:180 height:22 offset:[0,5]
-			
-			on btn_sun_set pressed do (
-				if selection.count == 0 then (
-					messagebox "Select at least one Dummy object!" title:"Sun Reflection 2DFX"
-				) else (
-					local setCount = 0
-					for dm in selection where (superclassof dm == helper and classof dm == Dummy) do (
-						setUserProp dm "2dfx" "true"
-						setUserProp dm "2dfx_type" "4"
-						setCount += 1
-					)
-					if setCount > 0 then (
-						messagebox ("Sun Reflection 2DFX set on " + setCount as string + " dummy object(s)") title:"Sun Reflection 2DFX"
-					) else (
-						messagebox "No Dummy objects found in selection!" title:"Sun Reflection 2DFX"
-					)
-				)
-			)
-			
-			on btn_close_stm pressed do try (closeRolloutFloater DFF2dfx_stm_rol) catch () 	
-		)
-		try (closeRolloutFloater DFF2dfx_stm_rol) catch () 
-		DFF2dfx_stm_rol = newRolloutFloater "Sun Reflection" 220 180
-		addRollout DFF2dfx_stm DFF2dfx_stm_rol
 	)
 	
 	-- Type 2 is unknown/unsupported, commented out
