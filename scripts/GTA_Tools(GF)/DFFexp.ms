@@ -95,7 +95,7 @@ fn HasUVAnimation mtl = (
 	local bmap = undefined
 	
 	if isKindOf mtl GTA_Mtl then (
-		if mtl.colorMap != undefined then bmap = mtl.colorMap
+		if mtl.colormap != undefined then bmap = mtl.colorMap
 	) else if isKindOf mtl Standard then (
 		if mtl.DiffuseMap != undefined then bmap = mtl.DiffuseMap
 	)
@@ -120,7 +120,7 @@ fn HasUVAnimation mtl = (
 -- Get bitmap texture from material
 fn GetBitmapFromMaterial mtl = (
 	if isKindOf mtl GTA_Mtl then (
-		if mtl.colorMap != undefined then return mtl.colorMap
+		if mtl.colormap != undefined then return mtl.colorMap
 	) else if isKindOf mtl Standard then (
 		if mtl.DiffuseMap != undefined then return mtl.DiffuseMap
 	)
@@ -131,29 +131,21 @@ fn GetBitmapFromMaterial mtl = (
 fn CollectUVAnimMaterials objects = (
 	local animMats = #()
 	
-	format "       [DEBUG] Scanning % objects for UV animations...\n" objects.count
 	for obj in objects do (
 		if superclassof obj == GeometryClass then (
 			local mat = obj.material
 			if mat != undefined then (
-				format "       [DEBUG] Object '%' has material '%' (class: %)\n" obj.name mat.name (classof mat)
 				if classof mat == Multimaterial then (
 					for submat in mat where submat != undefined do (
-						local hasAnim = HasUVAnimation submat
-						format "       [DEBUG]   Submat '%' hasUVAnim: %\n" submat.name hasAnim
-						if hasAnim then (
+						if HasUVAnimation submat then (
 							if findItem animMats submat == 0 then append animMats submat
 						)
 					)
 				) else (
-					local hasAnim = HasUVAnimation mat
-					format "       [DEBUG]   Material '%' hasUVAnim: %\n" mat.name hasAnim
-					if hasAnim then (
+					if HasUVAnimation mat then (
 						if findItem animMats mat == 0 then append animMats mat
 					)
 				)
-			) else (
-				format "       [DEBUG] Object '%' has NO material\n" obj.name
 			)
 		)
 	)
@@ -203,13 +195,8 @@ fn WriteUVAnimDictionary f animMats ver = (
 			writeLong f 0 #unsigned             -- unknown
 			
 			-- Animation name (material name, padded to 32 bytes)
-			format "       [DEBUG] Writing UV dict entry for material: '%' (length: %)\n" mtl.name mtl.name.count
-			local matName = mtl.name
-			format "       [DEBUG] Material name bytes: "
-			for i = 1 to matName.count do format "% " (bit.intAsHex (bit.charAsInt matName[i]))
-			format "\n"
-			writeString f matName
-			local nameLen = matName.count + 1  -- +1 for null terminator
+			writeString f mtl.name
+			local nameLen = mtl.name.count + 1  -- +1 for null terminator
 			local padding = 32 - nameLen
 			if padding > 0 then for i = 1 to padding do writeByte f 0
 			
@@ -255,13 +242,8 @@ fn WriteMaterialAnimPLG f mtl ver = (
 	writeLong f 1 #unsigned  -- has animation
 	
 	-- Animation name (material name, padded to 32 bytes)
-	format "     [DEBUG] Writing Material PLG for: '%' (length: %)\n" mtl.name mtl.name.count
-	local matName = mtl.name
-	format "     [DEBUG] Material name bytes: "
-	for i = 1 to matName.count do format "% " (bit.intAsHex (bit.charAsInt matName[i]))
-	format "\n"
-	writeString f matName
-	local nameLen = matName.count + 1
+	writeString f mtl.name
+	local nameLen = mtl.name.count + 1
 	local padding = 32 - nameLen
 	if padding > 0 then for i = 1 to padding do writeByte f 0
 	
@@ -286,7 +268,6 @@ fn ObjectHasUVAnimation obj = (
 /* ============================================================================
    END UV ANIMATION MODULE
    ============================================================================ */
-
 
 fn MMCCheck obj = (
 	MMCuseFlag = false
@@ -684,7 +665,7 @@ fn RemapByVT msh SkinData = (
 			for j = 1 to Newmesh.numVerts do meshop.setMapVert Newmesh -1 j NewNVColAry[j] 
 		)
 	) catch (format " debug -> [RemapByVT - Set NVC]: #error\n")
-	--format "- % %\n" (meshop.getNumMapVerts msh -1) msh.numverts
+	--format "- % %\n" (meshop.getNumMapVerts msh -1) msh.numVerts
 	interfaceUpdate()
 	try (
 		for j = 1 to msh.numFaces do (
@@ -1902,38 +1883,34 @@ fn wMaterial f msh mtl ver = (
 			)
 		)
 
-		-- UV Animation PLG (if material has UV animation - SA only)
-		if (ver == 0X1803FFFF) and gUVAnimEnabled and (HasUVAnimation mtl) then (
-			-- Material Animation PLG (0x135) - links to dictionary
-			writeLong f 0x135
-			writeLong f 48
-			writeLong f ver
-			-- Struct (0x01)
-			writeLong f 0x01
-			writeLong f 36
-			writeLong f ver
-			-- Data
-			writeLong f 1 #unsigned  -- has animation
-			-- Animation name (material name, padded to 32 bytes)
-			format "     [DEBUG] Writing Material PLG for: '%' (length: %)\n" mtl.name mtl.name.count
-			local matName = mtl.name
-			format "     [DEBUG] Material name bytes: "
-			for i = 1 to matName.count do format "% " (bit.intAsHex (bit.charAsInt matName[i]))
-			format "\n"
-			writeString f matName
-			local animNameLen = matName.count + 1
-			local animPadding = 32 - animNameLen
-			if animPadding > 0 then for ii = 1 to animPadding do writeByte f 0
-			
-			-- UV Anim PLG (0x120) with flags - required for game engine
-			writeLong f 0x120
-			writeLong f 12
-			writeLong f ver
-			writeLong f 5 #unsigned  -- flags for UV anim
-			writeLong f 5 #unsigned
-			writeLong f 0 #unsigned
-			
-			format "     - UV Animation\n"
+		-- UV Animation Material Extension (0x135) --
+		if (ver == 0X1803FFFF) and gUVAnimEnabled then (
+			if HasUVAnimation mtl then (
+				format "     - UV Animation: %\n" mtl.name
+				-- Material Animation PLG (0x135)
+				writeLong f 0x135
+				writeLong f 48
+				writeLong f ver
+				-- Struct (0x01)
+				writeLong f 0x01
+				writeLong f 36
+				writeLong f ver
+				-- Data
+				writeLong f 1 #unsigned  -- has animation
+				-- Animation name (material name, padded to 32 bytes)
+				writeString f mtl.name
+				local animNameLen = mtl.name.count + 1
+				local animPadding = 32 - animNameLen
+				if animPadding > 0 then for ii = 1 to animPadding do writeByte f 0
+				
+				-- Also need UV Anim PLG (0x120) with proper flags
+				writeLong f 0x120
+				writeLong f 12
+				writeLong f ver
+				writeLong f 5 #unsigned  -- flags for UV anim
+				writeLong f 5 #unsigned
+				writeLong f 0 #unsigned
+			)
 		)
 
 		--End of Material Extension--
@@ -2087,7 +2064,6 @@ fn wGeometry f mshAry BonesAry MMC TUV CPV NOR Iscale SkinPlugData bodypart ver 
 	)
 		
 	if lightArr.count >= 1 then format "     - 2dfx: light (%)\n" lightArr.count
-	if all2dfxArr.count > lightArr.count then format "     - 2dfx: other effects (%)\n" (all2dfxArr.count - lightArr.count)
 	
 	if (ver == 0x1803FFFF)OR(ver == 0x0C02FFFF) then GeometryFlags += 2
             
@@ -2316,210 +2292,100 @@ fn wGeometry f mshAry BonesAry MMC TUV CPV NOR Iscale SkinPlugData bodypart ver 
 	interfaceUpdate()
 	-- 2Dfx --
 	try (
-		if all2dfxArr.count >= 1 then (
+		if lightArr.count >= 1 then (
 			popPrompt()
 			pushPrompt ("Export DFF: " + (objExpName as string) + " - write 2dfx...")
-			
-			-- Calculate total size: each effect has variable size based on type
-			local totalSize = 4  -- Start with 4 bytes for count
-			for obj2dfx in all2dfxArr do (
-				if superclassof obj2dfx == light then (
-					totalSize += 100  -- Type 0 (light) is 100 bytes (12 pos+type+size + 80 data)
-				) else (
-					local dfxType = getUserProp obj2dfx "2dfx_type"
-					if dfxType != undefined then (
-						case (dfxType as integer) of (
-							1: totalSize += 32  -- Type 1 (particle): 12 + 20 bytes
-							3: totalSize += 40  -- Type 3 (ped area): 12 + 28 bytes  
-							4: totalSize += 12  -- Type 4 (sun reflection): 12 + 0 bytes (just position)
-							default: totalSize += 12  -- Unknown, just position
-						)
-					)
-				)
-			)
-			
 			writeLong f 0x0253F2F8 
-			writeLong f totalSize
+			writeLong f (100 * lightArr.count + 4)
 			writeLong f ver
-			writelong f all2dfxArr.count -- total 2dfx count
+			writelong f lightArr.count -- light count
 			if DFF2dfx_light != undefined and DFF2dfx_light.DFF2dfxLog.checked == true then format "\n - 2DFX Export log ----\n"
-			
 			tmpCnt = 0
-			for obj2dfx in all2dfxArr do (
+			for objLidht in lightArr do (
 				tmpCnt += 1
-				posx = in coordsys parent obj2dfx.pos.x
-				posy = in coordsys parent obj2dfx.pos.y
-				posz = in coordsys parent obj2dfx.pos.z
+				posx = in coordsys parent objLidht.pos.x
+				posy = in coordsys parent objLidht.pos.y
+				posz = in coordsys parent objLidht.pos.z
+					
+				v2d_L_Dist = getuserprop objLidht "2d_L_Dist" 
+				if v2d_L_Dist == undefined then v2d_L_Dist = DFF2dfx.LDrawDistance.value
+				v2d_L_OutRange = getuserprop objLidht "2d_L_OutRange" 
+				if v2d_L_OutRange == undefined then v2d_L_OutRange = DFF2dfx.LLightRange.value
+				v2d_L_Size = getuserprop objLidht "2d_L_Size" 
+				if v2d_L_Size == undefined then v2d_L_Size = DFF2dfx.LCoronaSize.value
+				v2d_L_ShSize = getuserprop objLidht "2d_L_ShSize"  	
+				if v2d_L_ShSize == undefined then v2d_L_ShSize = DFF2dfx.LShadowSize.value
+				v2d_L_ShowMode = getuserprop objLidht "2d_L_ShowMode" 
+				if v2d_L_ShowMode == undefined then v2d_L_ShowMode = getNum(DFF2dfx.LShowModeText.text)
+				v2d_L_Refl = getuserprop objLidht "2d_L_Refl"
+				if v2d_L_Refl == undefined then (
+					if DFF2dfx.LCoronaRefl.checked == true then tmp = 1 else tmp = 0
+					v2d_L_Refl = tmp
+				)
+				v2d_L_coronaFlareType = getuserprop objLidht "2d_L_coronaFlareType"
+				if v2d_L_coronaFlareType == undefined then (
+					if DFF2dfx.LFlareType.selection == 1 then tmp = 0 
+						else if DFF2dfx.LFlareType.selection == 2 then tmp = 1 
+							else if DFF2dfx.LFlareType.selection == 3 then tmp = 2
+					v2d_L_coronaFlareType = tmp
+				)					
+				v2d_L_shadowColorMultiplier = getuserprop objLidht "2d_L_shadowColorMultiplier"
+				if v2d_L_shadowColorMultiplier == undefined then v2d_L_shadowColorMultiplier = DFF2dfx.LShadowMP.value
+				v2d_L_Flags1 = getuserprop objLidht "2d_L_Flags1"
+				if v2d_L_Flags1 == undefined then v2d_L_Flags1 = DFF2dfx.LSflags1.value
+				v2d_L_CoroneName = getuserprop objLidht "2d_L_CoroneName" 	
+				if v2d_L_CoroneName == undefined then v2d_L_CoroneName = DFF2dfx.LCoronaName.text
+				v2d_L_shadowName = getuserprop objLidht "2d_L_shadowName" 	
+				if v2d_L_shadowName == undefined then v2d_L_shadowName = DFF2dfx.LShadowName.text
+					
+				v2d_L_shadowZDistance = getuserprop objLidht "2d_L_shadowZDistance" 
+				if v2d_L_shadowZDistance == undefined then v2d_L_shadowZDistance = DFF2dfx.LShadowDistance.value
+				v2d_L_Flags2 = getuserprop objLidht "2d_L_Flags2" 
+				if v2d_L_Flags2 == undefined then v2d_L_Flags2 = DFF2dfx.LSflags2.value
+				v2d_L_DirectionX = getuserprop objLidht "2d_L_DirectionX" 
+				if v2d_L_DirectionX == undefined then v2d_L_DirectionX = DFF2dfx.LVX.value
+				v2d_L_DirectionY = getuserprop objLidht "2d_L_DirectionY" 
+				if v2d_L_DirectionY == undefined then v2d_L_DirectionY = DFF2dfx.LVY.value
+				v2d_L_DirectionZ = getuserprop objLidht "2d_L_DirectionZ"  
+				if v2d_L_DirectionZ == undefined then v2d_L_DirectionZ = DFF2dfx.LVZ.value
+					
+				if DFF2dfx_light != undefined and DFF2dfx_light.DFF2dfxLog.checked == true then (
+					format "     2d_L_Dist = %\n     2d_L_OutRange = %\n     2d_L_Size = %\n     2d_L_ShSize = %\n     2d_L_ShowMode = %\n     2d_L_Refl = %\n" v2d_L_Dist v2d_L_OutRange v2d_L_Size v2d_L_ShSize v2d_L_ShowMode v2d_L_Refl 
+					format "     2d_L_coronaFlareType = %\n     2d_L_shadowColorMultiplier = %\n     2d_L_Flags1 = %\n     2d_L_CoroneName = %\n     2d_L_shadowName = %\n" v2d_L_coronaFlareType v2d_L_shadowColorMultiplier v2d_L_Flags1 v2d_L_CoroneName v2d_L_shadowName
+					format "     2d_L_shadowZDistance = %\n     2d_L_Flags2 = %\n     Direction:\n     X = %\n     Y = %\n     Z = %\n\n" v2d_L_shadowZDistance v2d_L_Flags2 v2d_L_DirectionX v2d_L_DirectionY v2d_L_DirectionZ
+				)
 				
-				-- Write position (common to all types)
 				writefloat f posx
 				writefloat f posy
 				writefloat f posz
+				writelong f 0 -- type: light
+				writelong f 80 -- size
 				
-				-- Determine type and write appropriate data
-				if superclassof obj2dfx == light then (
-					-- TYPE 0: LIGHT
-					writelong f 0 -- type: light
-					writelong f 80 -- size
-						
-					v2d_L_Dist = getuserprop obj2dfx "2d_L_Dist" 
-					if v2d_L_Dist == undefined then v2d_L_Dist = DFF2dfx.LDrawDistance.value
-					v2d_L_OutRange = getuserprop obj2dfx "2d_L_OutRange" 
-					if v2d_L_OutRange == undefined then v2d_L_OutRange = DFF2dfx.LLightRange.value
-					v2d_L_Size = getuserprop obj2dfx "2d_L_Size" 
-					if v2d_L_Size == undefined then v2d_L_Size = DFF2dfx.LCoronaSize.value
-					v2d_L_ShSize = getuserprop obj2dfx "2d_L_ShSize"  	
-					if v2d_L_ShSize == undefined then v2d_L_ShSize = DFF2dfx.LShadowSize.value
-					v2d_L_ShowMode = getuserprop obj2dfx "2d_L_ShowMode" 
-					if v2d_L_ShowMode == undefined then v2d_L_ShowMode = getNum(DFF2dfx.LShowModeText.text)
-					v2d_L_Refl = getuserprop obj2dfx "2d_L_Refl"
-					if v2d_L_Refl == undefined then (
-						if DFF2dfx.LCoronaRefl.checked == true then tmp = 1 else tmp = 0
-						v2d_L_Refl = tmp
-					)
-					v2d_L_coronaFlareType = getuserprop obj2dfx "2d_L_coronaFlareType"
-					if v2d_L_coronaFlareType == undefined then (
-						if DFF2dfx.LFlareType.selection == 1 then tmp = 0 
-							else if DFF2dfx.LFlareType.selection == 2 then tmp = 1 
-								else if DFF2dfx.LFlareType.selection == 3 then tmp = 2
-						v2d_L_coronaFlareType = tmp
-					)					
-					v2d_L_shadowColorMultiplier = getuserprop obj2dfx "2d_L_shadowColorMultiplier"
-					if v2d_L_shadowColorMultiplier == undefined then v2d_L_shadowColorMultiplier = DFF2dfx.LShadowMP.value
-					v2d_L_Flags1 = getuserprop obj2dfx "2d_L_Flags1"
-					if v2d_L_Flags1 == undefined then v2d_L_Flags1 = DFF2dfx.LSflags1.value
-					v2d_L_CoroneName = getuserprop obj2dfx "2d_L_CoroneName" 	
-					if v2d_L_CoroneName == undefined then v2d_L_CoroneName = DFF2dfx.LCoronaName.text
-					v2d_L_shadowName = getuserprop obj2dfx "2d_L_shadowName" 	
-					if v2d_L_shadowName == undefined then v2d_L_shadowName = DFF2dfx.LShadowName.text
-						
-					v2d_L_shadowZDistance = getuserprop obj2dfx "2d_L_shadowZDistance" 
-					if v2d_L_shadowZDistance == undefined then v2d_L_shadowZDistance = DFF2dfx.LShadowDistance.value
-					v2d_L_Flags2 = getuserprop obj2dfx "2d_L_Flags2" 
-					if v2d_L_Flags2 == undefined then v2d_L_Flags2 = DFF2dfx.LSflags2.value
-					v2d_L_DirectionX = getuserprop obj2dfx "2d_L_DirectionX" 
-					if v2d_L_DirectionX == undefined then v2d_L_DirectionX = DFF2dfx.LVX.value
-					v2d_L_DirectionY = getuserprop obj2dfx "2d_L_DirectionY" 
-					if v2d_L_DirectionY == undefined then v2d_L_DirectionY = DFF2dfx.LVY.value
-					v2d_L_DirectionZ = getuserprop obj2dfx "2d_L_DirectionZ"  
-					if v2d_L_DirectionZ == undefined then v2d_L_DirectionZ = DFF2dfx.LVZ.value
-						
-					if DFF2dfx_light != undefined and DFF2dfx_light.DFF2dfxLog.checked == true then (
-						format "     2d_L_Dist = %\n     2d_L_OutRange = %\n     2d_L_Size = %\n     2d_L_ShSize = %\n     2d_L_ShowMode = %\n     2d_L_Refl = %\n" v2d_L_Dist v2d_L_OutRange v2d_L_Size v2d_L_ShSize v2d_L_ShowMode v2d_L_Refl 
-						format "     2d_L_coronaFlareType = %\n     2d_L_shadowColorMultiplier = %\n     2d_L_Flags1 = %\n     2d_L_CoroneName = %\n     2d_L_shadowName = %\n" v2d_L_coronaFlareType v2d_L_shadowColorMultiplier v2d_L_Flags1 v2d_L_CoroneName v2d_L_shadowName
-						format "     2d_L_shadowZDistance = %\n     2d_L_Flags2 = %\n     Direction:\n     X = %\n     Y = %\n     Z = %\n\n" v2d_L_shadowZDistance v2d_L_Flags2 v2d_L_DirectionX v2d_L_DirectionY v2d_L_DirectionZ
-					)
-					
-					--write light data	- 80 bytes
-					writebyte f (obj2dfx.color.r as integer) #unsigned -- 0x00 | RwRGBA color
-					writebyte f (obj2dfx.color.g as integer) #unsigned
-					writebyte f (obj2dfx.color.b as integer) #unsigned
-					writebyte f 255 #unsigned
-					writefloat f (v2d_L_Dist as float)								-- 0x04 | float  coronaFarClip (draw distance)
-					writefloat f (v2d_L_OutRange as float)						--0x08  | float  pointlightRange (range of lighting models)
-					writefloat f (v2d_L_Size as float) 								-- 0x0C | float  coronaSize 
-					writefloat f (v2d_L_ShSize as float) 							-- 0x10 | float  shadowSize 		
-					writebyte f (v2d_L_ShowMode as integer) #unsigned					-- 0x14 | BYTE   coronaShowMode (0 DEFAULT)
-					writebyte f (v2d_L_Refl as integer) #unsigned							-- 0x15 | BYTE   coronaEnableReflection
-					writebyte f (v2d_L_coronaFlareType as integer) #unsigned			-- 0x16 | BYTE   coronaFlareType
-					writebyte f (v2d_L_shadowColorMultiplier as integer) #unsigned	-- 0x17 | BYTE   shadowColorMultiplier		
-					writebyte f (v2d_L_Flags1 as integer) #unsigned						-- 0x18 | BYTE   flags1 (32 AT_DAY,64 AT_NIGHT) 
-					writestring f v2d_L_CoroneName 								-- 0x19 | char   coronaTexName[24]
-					for i=1 to 23 - v2d_L_CoroneName.count do writebyte f 0 -- aligment (coronaTexName)
-					writestring f v2d_L_shadowName 								-- 0x31 | char   shadowTexName[24] 
-					for i=1 to 23 - v2d_L_shadowName.count do writebyte f 0 -- aligment (shadowTexName)
-					writebyte f (v2d_L_shadowZDistance as integer)#unsigned 			-- 0x49 | BYTE   shadowZDistance
-					writebyte f (v2d_L_Flags2 as integer) #unsigned						-- 0x4A | BYTE   flags2  
-					writebyte f (v2d_L_DirectionX as integer) #unsigned					-- 0x4B | BYTE   lookDirection_x
-					writebyte f (v2d_L_DirectionY as integer) #unsigned					-- 0x4C | BYTE   lookDirection_y
-					writebyte f (v2d_L_DirectionZ as integer)#unsigned 					-- 0x4D | BYTE   lookDirection_z 
-					writebyte f 0 											-- BYTE   padding
-					writebyte f 0 											-- BYTE   padding[2]
-					
-				) else (
-					-- DUMMY with 2dfx properties
-					local dfxType = getUserProp obj2dfx "2dfx_type"
-					if dfxType != undefined then (
-						dfxType = dfxType as integer
-						
-						case dfxType of (
-							1: (
-								-- TYPE 1: PARTICLE
-								writelong f 1 -- type: particle
-								writelong f 20 -- size
-								
-								local particleName = getUserProp obj2dfx "particle_name"
-								if particleName == undefined then particleName = "prt_blood"
-								
-								-- Find particle index in effects array
-								local particleIndex = 0
-								for i = 1 to effects.count do (
-									if effects[i] == particleName then (
-										particleIndex = i - 1
-										exit
-									)
-								)
-								
-								writelong f particleIndex #unsigned  -- particle type index
-								writelong f 0 #unsigned  -- unknown1
-								writelong f 0 #unsigned  -- unknown2
-								writelong f 0 #unsigned  -- unknown3
-								writefloat f 1.0  -- size
-								
-								if DFF2dfx_light != undefined and DFF2dfx_light.DFF2dfxLog.checked == true then (
-									format "     Particle: % (index %)\n" particleName particleIndex
-								)
-							)
-							3: (
-								-- TYPE 3: PED BEHAVIOR AREA
-								writelong f 3 -- type: ped area
-								writelong f 28 -- size
-								
-								local animType = getUserProp obj2dfx "ped_anim_type"
-								if animType == undefined then animType = 0
-								writelong f (animType as integer) #unsigned
-								
-								-- Bounding box corners
-								local c1x = getUserProp obj2dfx "ped_corner1_x"
-								local c1y = getUserProp obj2dfx "ped_corner1_y"
-								local c1z = getUserProp obj2dfx "ped_corner1_z"
-								local c2x = getUserProp obj2dfx "ped_corner2_x"
-								local c2y = getUserProp obj2dfx "ped_corner2_y"
-								local c2z = getUserProp obj2dfx "ped_corner2_z"
-								if c1x == undefined then c1x = -1.0
-								if c1y == undefined then c1y = -1.0
-								if c1z == undefined then c1z = 0.0
-								if c2x == undefined then c2x = 1.0
-								if c2y == undefined then c2y = 1.0
-								if c2z == undefined then c2z = 2.0
-								
-								writefloat f c1x
-								writefloat f c1y
-								writefloat f c1z
-								writefloat f c2x
-								writefloat f c2y
-								writefloat f c2z
-								
-								if DFF2dfx_light != undefined and DFF2dfx_light.DFF2dfxLog.checked == true then (
-									format "     Ped Attractor: anim type % bbox [%,%,%] to [%,%,%]\n" animType c1x c1y c1z c2x c2y c2z
-								)
-							)
-							4: (
-								-- TYPE 4: SUN REFLECTION
-								writelong f 4 -- type: sun reflection
-								writelong f 0 -- size (no additional data)
-								
-								if DFF2dfx_light != undefined and DFF2dfx_light.DFF2dfxLog.checked == true then (
-									format "     Sun Reflection at [%,%,%]\n" posx posy posz
-								)
-							)
-							default: (
-								-- Unknown type, skip
-								format "     [Warning] Unknown 2DFX type % on object %\n" dfxType obj2dfx.name
-							)
-						)
-					)
-				)
+				--write light data	- 80 bytes
+				writebyte f (objLidht.color.r as integer) #unsigned -- 0x00 | RwRGBA color
+				writebyte f (objLidht.color.g as integer) #unsigned
+				writebyte f (objLidht.color.b as integer) #unsigned
+				writebyte f 255 #unsigned
+				writefloat f (v2d_L_Dist as float)								-- 0x04 | float  coronaFarClip (draw distance)
+				writefloat f (v2d_L_OutRange as float)						--0x08  | float  pointlightRange (range of lighting models)
+				writefloat f (v2d_L_Size as float) 								-- 0x0C | float  coronaSize 
+				writefloat f (v2d_L_ShSize as float) 							-- 0x10 | float  shadowSize 		
+				writebyte f (v2d_L_ShowMode as integer) #unsigned					-- 0x14 | BYTE   coronaShowMode (0 DEFAULT)
+				writebyte f (v2d_L_Refl as integer) #unsigned							-- 0x15 | BYTE   coronaEnableReflection
+				writebyte f (v2d_L_coronaFlareType as integer) #unsigned			-- 0x16 | BYTE   coronaFlareType
+				writebyte f (v2d_L_shadowColorMultiplier as integer) #unsigned	-- 0x17 | BYTE   shadowColorMultiplier		
+				writebyte f (v2d_L_Flags1 as integer) #unsigned						-- 0x18 | BYTE   flags1 (32 AT_DAY,64 AT_NIGHT) 
+				writestring f v2d_L_CoroneName 								-- 0x19 | char   coronaTexName[24]
+				for i=1 to 23 - v2d_L_CoroneName.count do writebyte f 0 -- aligment (coronaTexName)
+				writestring f v2d_L_shadowName 								-- 0x31 | char   shadowTexName[24] 
+				for i=1 to 23 - v2d_L_shadowName.count do writebyte f 0 -- aligment (shadowTexName)
+				writebyte f (v2d_L_shadowZDistance as integer)#unsigned 			-- 0x49 | BYTE   shadowZDistance
+				writebyte f (v2d_L_Flags2 as integer) #unsigned						-- 0x4A | BYTE   flags2  
+				writebyte f (v2d_L_DirectionX as integer) #unsigned					-- 0x4B | BYTE   lookDirection_x
+				writebyte f (v2d_L_DirectionY as integer) #unsigned					-- 0x4C | BYTE   lookDirection_y
+				writebyte f (v2d_L_DirectionZ as integer)#unsigned 					-- 0x4D | BYTE   lookDirection_z 
+				writebyte f 0 											-- BYTE   padding
+				writebyte f 0 											-- BYTE   padding[2]
 			)
 		)
 	) catch (format "     [Error] write 2Dfx\n")
@@ -2598,33 +2464,22 @@ fn DFFout f Allobjects MMC TUV CPV NOR ExSc ver SAColBase noCol addlock = (
 	tmpObj = #()
 	pbUpdate()
 
-	SkinData = undefined
-	bonechain = undefined
-	
-	-- Collect and write UV Animation Dictionary (must be before CLUMP - SA ONLY)
-	gUVAnimMaterialList = #()
-	format "     [DEBUG] gUVAnimEnabled = %\n" gUVAnimEnabled
-	format "     [DEBUG] Game version = 0x%\n" (bit.intAsHex ver)
-	if (ver == 0X1803FFFF) and gUVAnimEnabled then (
-		format "     [DEBUG] Collecting UV animations from % objects...\n" Allobjects.count
-		gUVAnimMaterialList = CollectUVAnimMaterials Allobjects
-		format "     [DEBUG] Found % materials with UV animation\n" gUVAnimMaterialList.count
-		format "     [DEBUG] Dictionary will contain these materials:\n"
-		for i = 1 to gUVAnimMaterialList.count do (
-			format "       [%] '%' (class: %)\n" i gUVAnimMaterialList[i].name (classof gUVAnimMaterialList[i])
+		SkinData = undefined
+		bonechain = undefined
+		
+		-- UV Animation: Detect and write dictionary BEFORE clump (SA only)
+		gUVAnimMaterialList = #()
+		if (ver == 0X1803FFFF) and gUVAnimEnabled then (
+			gUVAnimMaterialList = CollectUVAnimMaterials Allobjects
+			if gUVAnimMaterialList.count > 0 then (
+				format "\n   [UV Animation] Detected % animated material(s)\n" gUVAnimMaterialList.count
+				WriteUVAnimDictionary f gUVAnimMaterialList ver
+			)
 		)
-		if gUVAnimMaterialList.count > 0 then (
-			WriteUVAnimDictionary f gUVAnimMaterialList ver
-		)
-	) else (
-		if gUVAnimEnabled then format "     [DEBUG] UV Animation export is DISABLED (not SA version)\n"
-		else format "     [DEBUG] UV Animation export is DISABLED (gUVAnimEnabled = false)\n"
-	)
-	
-	Clump_Start = ftell f
-	local ObjAry=#(),lightIDs=#(),geo_count=0, light_count=0, help_count=0
+		
+		Clump_Start = ftell f
+		local ObjAry=#(),lightIDs=#(),geo_count=0, light_count=0, help_count=0
 		lightArr = #()
-		global all2dfxArr = #()  -- Array to hold all 2DFX objects (lights + dummies)
 		pbUpdate()
 		interfaceUpdate()
 		for i  in  Allobjects do (
@@ -2635,17 +2490,9 @@ fn DFFout f Allobjects MMC TUV CPV NOR ExSc ver SAColBase noCol addlock = (
 			if (superclassof i == light) then (
 				light_count+=1
 				append lightArr i
-				append all2dfxArr i  -- Add light to 2dfx array
 			)
 			if (superclassof i == helper) then (
 				help_count+=1
-				-- Check if this dummy has 2dfx properties
-				if (classof i == Dummy) then (
-					local has2dfx = getUserProp i "2dfx"
-					if (has2dfx != undefined) and (has2dfx == "true") then (
-						append all2dfxArr i  -- Add dummy to 2dfx array
-					)
-				)
 			)
 		)
 		try (
@@ -2755,19 +2602,19 @@ fn DFFout f Allobjects MMC TUV CPV NOR ExSc ver SAColBase noCol addlock = (
 			delete tmpMsh			
 			if tmsh != undefined then (
 				tmsh[1] = CondenseMtlByID tmsh[1]
-			--objExpName = ObjAry[i].name
-			format "\n   [%] %\n" i ObjAry[i].name 	
-			wGeometry f tmsh undefined MMC TUV CPV NOR ExSc undefined false ver
-							
-			hasRef = getUserProp tmsh[1] "Ref"
-			-- Also check for UV animation (sets Ref flag for atomic extension)
-			if (ver == 0X1803FFFF) and gUVAnimEnabled and (ObjectHasUVAnimation ObjAry[i]) then (
-				if hasRef != true and hasRef != 3 then hasRef = true
-			)
-			if hasRef == true then append AtmRefAry true
-			else if (hasRef != undefined and (hasRef as integer) == 3) then append AtmRefAry 3 else append AtmRefAry false
-			
-			delete tmsh[1]
+				--objExpName = ObjAry[i].name
+				format "\n   [%] %\n" i ObjAry[i].name 	
+				wGeometry f tmsh undefined MMC TUV CPV NOR ExSc undefined false ver
+								
+				hasRef = getUserProp tmsh[1] "Ref"
+				-- Also check for UV animation (sets Ref flag for atomic extension)
+				if (ver == 0X1803FFFF) and gUVAnimEnabled and (ObjectHasUVAnimation ObjAry[i]) then (
+					if hasRef != true and hasRef != 3 then hasRef = true
+				)
+				if hasRef == true then append AtmRefAry true
+				else if (hasRef != undefined and (hasRef as integer) == 3) then append AtmRefAry 3 else append AtmRefAry false
+				
+				delete tmsh[1]
 			) else (
 				Noproblem = false
 				format "Can't export: %\n>>>This dff WON'T work<<<\n" ObjAry[i]
@@ -2880,7 +2727,7 @@ fn wCharDFFout f obj BonesAry MMC TUV CPV NOR ExSc  ver bodypart addlock = (
 	GL_length_add = wGeometryList f obj ver
     
 	SkinPlugData = CreateSkinData obj
-	tmsh = RemapGeo obj	SkinPlugData
+	tmsh = RemapGeo obj	SkinPlugData   
  
     if tmsh != undefined then tmsh[1] = CondenseMtlByID tmsh[1]
     --format "tmsh[3]:%\n" tmsh[3][1].count
@@ -2959,200 +2806,4 @@ fn wCharDFFout f obj BonesAry MMC TUV CPV NOR ExSc  ver bodypart addlock = (
 
 fn DFFoutInfo = (    
     return (777)
-)
-
--- IFP Export Functions
-fn writeStringZero_IFP f str N = (
-	local i, len
-	writeString f str
-	len = str.count
-	if len < N do (
-		for i = 1 to (N - len - 1) do writeByte f 0x0 #unsigned
-	)
-	N - len
-)
-
-fn getKeys_IFP s havePos = (
-	local posKeys, rotKeys, AKeys = #()
-	local i, j, k, t
-	try ( if s.rotation.controller == undefined then s.rotation.controller = linear_rotation() ) catch()
-	try ( if s.position.controller == undefined then s.position.controller = linear_position() ) catch()
-
-	rotKeys = s.rotation.controller.keys
-	posKeys = s.position.controller.keys
-
-	for i = 1 to rotKeys.count do (
-		k = rotKeys[i].time
-		if (findItem AKeys k) == 0 do append AKeys k
-	)
-
-	if havePos then (
-		for i = 1 to posKeys.count do (
-			k = posKeys[i].time
-			if (findItem AKeys k) == 0 do append AKeys k
-		)
-	)
-
-	for i = 1 to AKeys.count-1 do
-		for j = i+1 to AKeys.count do
-			if AKeys[i] > AKeys[j] do swap AKeys[i] AKeys[j]
-
-	AKeys
-)
-
-fn writeData_IFP f s AKeys havePos = (
-	local i
-	-- name padded to 24 bytes
-	writeStringZero_IFP f s.name 24
-	-- write flags: 4 if position included, 3 if rotation only
-	if havePos then writeLong f 4 #unsigned else writeLong f 3 #unsigned
-	writeLong f AKeys.count #unsigned
-	writeLong f -1 #unsigned
-	-- write per-key data
-	for i = 1 to AKeys.count do (
-		-- rotation (parent coords) scaled by 4096
-		writeShort f (at time AKeys[i] ((in coordsys parent s.rotation.x) * 4096.0) as integer) #signed
-		writeShort f (at time AKeys[i] ((in coordsys parent s.rotation.y) * 4096.0) as integer) #signed
-		writeShort f (at time AKeys[i] ((in coordsys parent s.rotation.z) * 4096.0) as integer) #signed
-		writeShort f (at time AKeys[i] ((in coordsys parent s.rotation.w) * 4096.0) as integer) #signed
-		-- time stored as ticks/80 (preserves original behavior)
-		writeShort f ((AKeys[i] as integer) / 80) #unsigned
-		if havePos then (
-			writeShort f (at time AKeys[i] ((in coordsys parent s.position.x) * 1024.0) as integer) #signed
-			writeShort f (at time AKeys[i] ((in coordsys parent s.position.y) * 1024.0) as integer) #signed
-			writeShort f (at time AKeys[i] ((in coordsys parent s.position.z) * 1024.0) as integer) #signed
-		)
-	)
-)
-
-fn writeSection_IFP f root asubs exc skipPosKey = (
-	local i
-	local AKeysArr = #(), DataCount = 0, AnimCount = 0
-
-	for i = 1 to asubs.count do AKeysArr[i] = getKeys_IFP asubs[i] (not skipPosKey[i])
-
-	for i = 1 to asubs.count do (
-		if not exc[i] then (
-			AnimCount += 1
-			if not skipPosKey[i] then DataCount += AKeysArr[i].count * 8 else DataCount += AKeysArr[i].count * 5
-		)
-	)
-
-	-- write root name (24 bytes)
-	writeStringZero_IFP f root.name 24
-	-- header values: AnimCount, DataCount*2, 1
-	writeLong f AnimCount #unsigned
-	writeLong f (DataCount * 2) #unsigned
-	writeLong f 1 #unsigned
-
-	for i = 1 to asubs.count do (
-		if not exc[i] then writeData_IFP f asubs[i] AKeysArr[i] (not skipPosKey[i])
-	)
-)
-
-fn getSubs_IFP s = (
-	local res = #(), i, subobj = s.children
-	if subobj.count > 0 do (
-		for i = 1 to subobj.count do (
-			append res subobj[i]
-			if subobj[i].children.count > 0 then join res (getSubs_IFP subobj[i])
-		)
-	)
-	res
-)
-
--- Public function: ExportIFPFromRoot
--- rootObj: root of hierarchy (if undefined uses selection[1])
--- fname: optional file path (if undefined user will be prompted)
--- appendFlag: true=append, false=overwrite, undefined=prompt if file exists
-fn ExportIFPFromRoot rootObj fname appendFlag = (
-	local f, aname, asubs = #(), exc = #(), skipPosKey = #(), i, size, toEnd, DataSize, Nanims, doAppend
-
-	if rootObj == undefined then (
-		if selection.count >= 1 then rootObj = selection[1] else (messagebox "Select a root object or pass it to ExportIFPFromRoot" title:"Export IFP"; return false)
-	)
-
-	asubs = getSubs_IFP rootObj
-	if asubs.count == 0 then (messagebox "No children found under root" title:"Export IFP"; return false)
-
-	for i = 1 to asubs.count do ( exc[i] = false; skipPosKey[i] = true )
-
-	-- Check if there's any animation on the timeline using getKeys_IFP (same method as export uses)
-	local hasAnimation = false
-	for i = 1 to asubs.count do (
-		try (
-			local testKeys = getKeys_IFP asubs[i] (not skipPosKey[i])
-			if testKeys.count > 0 then (
-				hasAnimation = true
-				exit
-			)
-		) catch()
-	)
-	
-	if not hasAnimation then (
-		messagebox "No animation keys found on the timeline.\nPlease animate the hierarchy before exporting." title:"Export IFP"
-		return false
-	)
-
-	-- if fname not provided, ask user
-	if fname == undefined then fname = getSaveFileName caption:"export animation" types:"GTA animation (*.ifp)|*.ifp|"
-	if fname == undefined then return false
-
-	-- decide append vs overwrite
-	doAppend = false
-	if appendFlag == true then doAppend = true
-	else if appendFlag == false then doAppend = false
-	else (
-		-- appendFlag undefined: check if file exists and ask
-		if doesFileExist fname then (
-			if queryBox ("File exists: " + fname + "\nAppend to it? (Yes = Append, No = Overwrite)") then doAppend = true else doAppend = false
-		) else doAppend = false
-	)
-
-	if doAppend then (
-		-- open existing file for read/write
-		f = fopen fname "rb+"
-		if f == undefined then (messagebox "Cannot open file for append" title:"Export IFP"; return false)
-		-- read header information and increment anim count
-		fseek f 4 #seek_set
-		DataSize = readLong f #unsigned
-		fseek f 32 #seek_set
-		Nanims = readLong f #unsigned
-		-- increment anim count
-		fseek f 32 #seek_set
-		writeLong f (Nanims + 1) #unsigned
-		-- seek to end-of-data (DataSize + 8) and append section
-		fseek f (DataSize + 8) #seek_set
-		writeSection_IFP f rootObj asubs exc skipPosKey
-		size = ftell f
-		toEnd = (2048 - (mod size 2048)) as integer
-		for i = 1 to toEnd do writeByte f 0
-		-- update size in header
-		fseek f 4 #seek_set
-		writeLong f (size - 8) #unsigned
-		fclose f
-		return true
-	) else (
-		-- write new file
-		f = fopen fname "wb"
-		if f == undefined then (messagebox "Cannot create file" title:"Export IFP"; return false)
-		-- header "ANP3"
-		writeByte f 65 #unsigned
-		writeByte f 78 #unsigned
-		writeByte f 80 #unsigned
-		writeByte f 51 #unsigned
-		-- placeholder size
-		writeLong f 10
-		aname = getFilenameFile fname
-		writeStringZero_IFP f aname 24
-		writeLong f 1 #unsigned -- initial anim count
-		writeSection_IFP f rootObj asubs exc skipPosKey
-		size = ftell f
-		toEnd = (2048 - (mod size 2048)) as integer
-		for i = 1 to toEnd do writeByte f 0
-		fseek f 4 #seek_set
-		writeLong f (size - 8) #unsigned
-		fclose f
-		return true
-	)
 )
