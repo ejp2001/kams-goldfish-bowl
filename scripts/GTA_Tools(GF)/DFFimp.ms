@@ -1013,7 +1013,8 @@ fn rClump f showdetail = (
 		if rvar == 43 then format "\t\t(!) DFF has UV Animation Dictionary (unexpected position)!\n" 
 	)
 	if (rvar != 16 or ercheck == true)  then ( 
-		format "Error in Clump % %\n" rvar f
+		local fpos = ftell f
+		format "Error in Clump: Expected chunk ID 16, got % at file position %\n" rvar fpos
 		exit 
 	) 
 	local Clumpsize = readLong f #unsigned

@@ -21,85 +21,119 @@ fn pbUpdate = (
 
 -- Detect if DFF contains skin data (character model vs world object)
 -- Scan for Skin PLG chunk (0x116) only as proper chunk header
-fn hasSkinData f = (
-	local startPos = ftell f
+-- Detect if DFF contains skin data (character model vs world object)
+-- Opens its own file handle to avoid interfering with import
+fn hasSkinData filePath = (
+	local testFile = fopen filePath "rb"
+	if testFile == undefined then (
+		return false
+	)
+	
 	local hasSkin = false
 	
 	try (
-		fseek f 0 #seek_set
-		
-		-- Get file size for safety
-		fseek f 0 #seek_end
-		local fileSize = ftell f
-		fseek f 0 #seek_set
+		-- Get file size
+		fseek testFile 0 #seek_end
+		local fileSize = ftell testFile
+		fseek testFile 0 #seek_set
 		
 		-- Read and validate root CLUMP chunk
-		if (ftell f + 12) > fileSize then return false
-		local clumpID = readlong f #unsigned
-		local clumpSize = readlong f #unsigned
-		local clumpVersion = readlong f #unsigned
+		if (ftell testFile + 12) > fileSize then (
+			fclose testFile
+			return false
+		)
 		
-		if clumpID != 0x10 then return false  -- Not a DFF
+		local clumpID = readlong testFile #unsigned
+		local clumpSize = readlong testFile #unsigned
+		local clumpVersion = readlong testFile #unsigned
 		
-		local clumpEnd = ftell f + clumpSize
+		if clumpID != 0x10 then (  -- Not a DFF
+			fclose testFile
+			return false
+		)
+		
+		local clumpEnd = ftell testFile + clumpSize
 		if clumpEnd > fileSize then clumpEnd = fileSize
 		
 		-- Scan top-level chunks in CLUMP
-		while (ftell f + 12) <= clumpEnd and not hasSkin do (
-			local pos = ftell f
-			local chunkID = readlong f #unsigned
-			local chunkSize = readlong f #unsigned
-			local chunkVersion = readlong f #unsigned
-			local chunkEnd = ftell f + chunkSize
+		while (ftell testFile + 12) <= clumpEnd and not hasSkin do (
+			local pos = ftell testFile
+			local chunkID = readlong testFile #unsigned
+			local chunkSize = readlong testFile #unsigned
+			local chunkVersion = readlong testFile #unsigned
+				local chunkEnd = ftell testFile + chunkSize
 			
-			if chunkEnd > fileSize then break
+			if chunkEnd > fileSize then (
+				break
+			)
 			
 			-- Check if this is GeometryList (0x1A)
 			if chunkID == 0x1A then (
 				-- Scan chunks inside GeometryList
-				while (ftell f + 12) <= chunkEnd and not hasSkin do (
-					local geoPos = ftell f
-					local geoID = readlong f #unsigned
-					local geoSize = readlong f #unsigned
-					local geoVer = readlong f #unsigned
-					local geoEnd = ftell f + geoSize
+				while (ftell testFile + 12) <= chunkEnd and not hasSkin do (
+					local geoPos = ftell testFile
+					local geoID = readlong testFile #unsigned
+					local geoSize = readlong testFile #unsigned
+					local geoVer = readlong testFile #unsigned
+					local geoEnd = ftell testFile + geoSize
 					
 					if geoEnd > fileSize then break
 					
-					-- Check if this is Geometry (0x0F)
+					-- Only scan extensions if this is actually a Geometry (0x0F)
 					if geoID == 0x0F then (
 						-- Scan extensions inside Geometry
-						while (ftell f + 12) <= geoEnd and not hasSkin do (
-							local extPos = ftell f
-							local extID = readlong f #unsigned
-							local extSize = readlong f #unsigned
-							local extVer = readlong f #unsigned
+						while (ftell testFile + 12) <= geoEnd and not hasSkin do (
+							local extPos = ftell testFile
+							local extID = readlong testFile #unsigned
+							local extSize = readlong testFile #unsigned
+							local extVer = readlong testFile #unsigned
+							local extEnd = ftell testFile + extSize
 							
-							if extID == 0x116 then (  -- Skin PLG found!
+							-- If this is Extension container (0x3), scan inside it for plugins
+							if extID == 0x3 then (
+								while (ftell testFile + 12) <= extEnd and not hasSkin do (
+									local pluginPos = ftell testFile
+									local pluginID = readlong testFile #unsigned
+									local pluginSize = readlong testFile #unsigned
+									local pluginVer = readlong testFile #unsigned
+									local pluginEnd = ftell testFile + pluginSize
+									
+									if pluginID == 0x116 then (  -- Skin PLG found!
+										hasSkin = true
+										exit
+									)
+									
+									-- Skip plugin data
+									if pluginEnd <= fileSize and pluginEnd > ftell testFile then
+										fseek testFile pluginEnd #seek_set
+									else
+										break
+								)
+							) else if extID == 0x116 then (  -- Skin PLG found directly!
 								hasSkin = true
 								exit
 							)
 							
 							-- Skip extension data safely
-							local extEnd = ftell f + extSize
-							if extEnd <= fileSize and extEnd > ftell f then
-								fseek f extEnd #seek_set
+							local extEnd = ftell testFile + extSize
+							if extEnd <= fileSize and extEnd > ftell testFile then
+								fseek testFile extEnd #seek_set
 							else
 								break
 						)
 					)
 					
 					-- Skip to next geometry chunk safely
-					if geoEnd <= fileSize and geoEnd > ftell f then
-						fseek f geoEnd #seek_set
+					if geoEnd <= fileSize and geoEnd > ftell testFile then
+						fseek testFile geoEnd #seek_set
 					else
 						break
 				)
 			)
 			
 			-- Skip to next top-level chunk safely
-			if chunkEnd <= fileSize and chunkEnd > ftell f then
-				fseek f chunkEnd #seek_set
+			if chunkEnd <= fileSize and chunkEnd > ftell testFile then
+				fseek testFile chunkEnd #seek_set
 			else
 				break
 		)
@@ -109,8 +143,8 @@ fn hasSkinData f = (
 		hasSkin = false
 	)
 	
-	-- Always reset to start of file for subsequent import
-	try (fseek f 0 #seek_set) catch ()
+	-- Close test file handle
+	try (fclose testFile) catch ()
 	
 	return hasSkin
 )
@@ -369,7 +403,7 @@ local no_clump = #()
 			cntLDffMax = 0
 			
 			-- Detect character model vs world object
-			local isCharacter = hasSkinData f
+			local isCharacter = hasSkinData gfname
 			
 			if isCharacter then (
 				format "Detected character model (has Skin PLG), using CharDFFin...\n"
@@ -419,9 +453,9 @@ local no_clump = #()
 								clearlistener()
 								
 								-- Detect character model (has skin data) vs world object
-								local isCharacter = hasSkinData f
-								
-								if isCharacter then (
+							local isCharacter = hasSkinData fname[i]
+							
+							if isCharacter then (
 								-- Character model: use CharDFFin
 								format "Detected character model (has Skin PLG), using CharDFFin...\n"
 								CharDFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname[i])
@@ -467,7 +501,7 @@ local no_clump = #()
 							cntLDffMax = 0
 							
 							-- Detect character model vs world object
-							local isCharacter = hasSkinData f
+							local isCharacter = hasSkinData fname
 							
 							if isCharacter then (
 								format "Detected character model (has Skin PLG), using CharDFFin...\n"

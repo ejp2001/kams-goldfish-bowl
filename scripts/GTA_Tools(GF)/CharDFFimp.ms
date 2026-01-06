@@ -133,7 +133,7 @@ struct BoneStruct (
 )
 --
 --05Oct05 Bone created in rHAnimPLG and return bone object with BoneID in userprop
-fn rHAnimPLG f string_length = (
+fn CharRHAnimPLG f string_length = (
 	if (readLong f) != 256 then (
 		format "Error in HAnim PLG(0x11E): %[%] skipped\n" i (ftell f)
 		local skip = string_length - 4
@@ -167,7 +167,7 @@ fn rHAnimPLG f string_length = (
 --end fn rHAnimPLG			--<B1>--
 --
 --06Oct05 return vertsarray weightarray ibm specialunknown
-fn rSkinPLG f data_length Vert_count ver = (
+fn CharRSkinPLG f data_length Vert_count ver = (
 
 	dataEND = (ftell f) + data_length
 
@@ -254,7 +254,7 @@ fn rSkinPLG f data_length Vert_count ver = (
 --1-----------------------
 -- Functions for Import --
 --------------------------
-fn rClump f showdetail = (
+fn CharRClump f showdetail = (
 	if (readLong f) != 16 then ( format "Error in Clump\n"; exit ) 
 	local Clumpsize = readLong f #unsigned
 	if showdetail == true then (
@@ -278,7 +278,7 @@ fn rClump f showdetail = (
 )
 --end fn rClump			--<i1>--
 --
-fn rFrameList f Iscale showdetail = (
+fn CharRFrameList f Iscale showdetail = (
 	if (readLong f) != 14 then ( format "Error in FrameList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\tFrameList(14) Size: %\n" tmp
@@ -317,7 +317,7 @@ fn rFrameList f Iscale showdetail = (
                     )
                     286: (
 						if showdetail == true then format "\t\t->Bones Data(286): size: %\n" string_length
-						tmp = rHAnimPLG f string_length
+						tmp = CharRHAnimPLG f string_length
 						if classof tmp == Array then (
 							BoneDataAry = tmp[2]
                             frameAry[i].obj = tmp[1]
@@ -351,7 +351,7 @@ fn rFrameList f Iscale showdetail = (
 --end fn rFrameList		--<i2>--
 --
 --Read rwLight after Atomic--**
-fn rExtra f showdetail = (
+fn CharRExtra f showdetail = (
     dataleng =  readLong f
     readlong f                  --ver
     if dataleng == 4 then  frame_index = (readLong f) + 1
@@ -381,9 +381,9 @@ fn rExtra f showdetail = (
 )
 --end fn rExtra
 --
-fn rAtomic f showdetail = (
+fn CharRAtomic f showdetail = (
     section = readLong f
-    if section == 1 then ( return rExtra f showdetail )
+    if section == 1 then ( return CharRExtra f showdetail )
 	if section != 20 then ( format "Error in Atomic\n"; exit )
 	atmsize = (readLong f #unsigned)
 	if showdetail == true then format "\tAtomic(20) Size: %\n" atmsize
@@ -427,7 +427,7 @@ fn rAtomic f showdetail = (
 )
 --end fn rAtomic			--<i3>--
 --
-fn rGeometryList f showdetail = (
+fn CharRGeometryList f showdetail = (
 	if (readLong f) != 26 then ( format "Error in GeometryList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\tGeometryList(26) Size: %\n" tmp
@@ -441,7 +441,7 @@ fn rGeometryList f showdetail = (
 )
 --end fn rGeometryList		--<i4>--
 --
-fn rMaterialSplit thismesh file showdetail = (
+fn CharRMaterialSplit thismesh file showdetail = (
 	SplitType = ReadLong file
 	split_count = ReadLong file
 	Face_Index_count = ReadLong file
@@ -543,7 +543,7 @@ fn rMaterialSplit thismesh file showdetail = (
 )
 --end fn ReadrwMaterialSplit	--<i5>--
 --
-fn rTexture f mtl texEx showdetail = (
+fn CharRTexture f mtl texEx showdetail = (
 	if (readLong f) != 6 then ( format "Error in Texture\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\t\t\tTexture(6) Size: %\n" tmp
@@ -606,7 +606,7 @@ fn rTexture f mtl texEx showdetail = (
 )
 --end rTexture				--<i6>--
 --
-fn rMaterial f mattype texEx showdetail = (
+fn CharRMaterial f mattype texEx showdetail = (
 	if (readLong f) != 7 then ( format "Error in Material\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\t\tMaterial(7) Size: %\n" tmp
@@ -654,7 +654,7 @@ if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
 		mtl.specular_level = Gspc *100
 	)
 	for i = 1 to texture_count do (
-		rTexture f mtl texEx showdetail
+		CharRTexture f mtl texEx showdetail
 	)
 
 	if (readLong f) != 3 then ( format "Error in Material Extension[Pos: %]\n" (ftell f); exit )
@@ -755,7 +755,7 @@ if DebugMode == true then mtlflag[4] = true
 )
 --end fn rMaterial			--<i7>--
 --
-fn rMaterialList f mattype texEx showdetail = (
+fn CharRMaterialList f mattype texEx showdetail = (
 	if (readLong f) != 8 then ( format "Error in MaterialList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\tMaterialList(8) Size: %\n" tmp
@@ -766,18 +766,18 @@ fn rMaterialList f mattype texEx showdetail = (
 	material_count = readLong f
 	if showdetail == true then format "\t\t\t\t->Material Count:%\n" material_count
 	for i = 1 to material_count do (readLong f #unsigned)
-    if material_count == 1 then thismtl = rMaterial f mattype texEx showdetail
+    if material_count == 1 then thismtl = CharRMaterial f mattype texEx showdetail
     else (
         thismtl = MultiMaterial numsubs:material_count
     	for i = 1 to material_count do (
-	    	thismtl[i] = rMaterial f mattype texEx showdetail
+	    	thismtl[i] = CharRMaterial f mattype texEx showdetail
 	    )
     )--end if/else
     return thismtl
 )
 --end fn rMaterialList		--<i8>--
 --
-fn rGeometry f Iscale mattype texEx showdetail = (
+fn CharRGeometry f Iscale mattype texEx showdetail = (
 	if (readLong f) != 15 then ( format "Error in Geometry\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\tGeometry(15) Size: %\n" tmp
@@ -925,7 +925,7 @@ if DebugMode == true then (
 	setUserProp DFFmesh "TriStrip" bol	
 )
 
-    DFFmesh.material = rMaterialList f mattype texEx showdetail
+    DFFmesh.material = CharRMaterialList f mattype texEx showdetail
 
 if DebugMode == true then (
 	if mtlflag[1] == true then setUserProp DFFmesh "Tex" true
@@ -950,7 +950,7 @@ if DebugMode == true then (
 			case header of (		
 				1294: (
 					if showdetail == true then format "\t\t\t\tMaterialSplit(1294) Size: %\n" string_length 
-					tmp = rMaterialSplit DFFmesh f showdetail
+					tmp = CharRMaterialSplit DFFmesh f showdetail
 					if tmp == undefined then return undefined
 				)
 				261: (
@@ -959,7 +959,7 @@ if DebugMode == true then (
 				)
 				278: (
 					if showdetail == true then format "\t\t\t\tSkin(278) Size: %\n" string_length
-					SkinData = rSkinPLG f string_length vert_count ver
+					SkinData = CharRSkinPLG f string_length vert_count ver
 				)
 				default: (
 					if showdetail == true then format "\t\t\t\tunknown(%) Size: %\n" header string_length
@@ -979,8 +979,6 @@ if DebugMode == true then (
 --Main Import--
 ---------------
 fn CharDFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
-
-	format "CharDFFin called: Iscale=%, mattype=%, texEx=%, Dummysize=%, autoskin=%, showdetail=%, setsname=%\n" Iscale mattype texEx Dummysize autoskin showdetail setsname
 	
 	local RootObj
     
@@ -997,19 +995,19 @@ fn CharDFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 
 		if showdetail == true then clearlistener()
 		SkinData = undefined
-		cpary = rClump f showdetail
-		FrameAry = rFrameList f Iscale showdetail
-		NumGeo = rGeometryList f showdetail
+		cpary = CharRClump f showdetail
+		FrameAry = CharRFrameList f Iscale showdetail
+		NumGeo = CharRGeometryList f showdetail
 		MshAry = #()
 		for i = 1 to NumGeo do (
-			msh = rGeometry f Iscale mattype texEx showdetail 
+			msh = CharRGeometry f Iscale mattype texEx showdetail 
 			if msh == undefined then (return undefined)
 			append MshAry msh
 		)
 
 		while (readLong f) != 3 do (
 			fseek f -4 #seek_cur
-			local Idx = rAtomic f showdetail
+			local Idx = CharRAtomic f showdetail
 			if Idx.count == 3 then FrameAry[(Idx[1])].obj = Idx[2]
 			else if Idx != undefined then (
 				if (SkinData != undefined)AND(cpary[2] == 0x1803FFFF)AND(NumGeo == 1) then (
