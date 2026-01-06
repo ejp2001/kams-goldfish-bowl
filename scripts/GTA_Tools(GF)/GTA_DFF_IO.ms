@@ -19,6 +19,102 @@ fn pbUpdate = (
 	DFFexPara.pb.value = (((pbcount as float)/pbMax)*100)
 )
 
+-- Detect if DFF contains skin data (character model vs world object)
+-- Scan for Skin PLG chunk (0x116) only as proper chunk header
+fn hasSkinData f = (
+	local startPos = ftell f
+	local hasSkin = false
+	
+	try (
+		fseek f 0 #seek_set
+		
+		-- Get file size for safety
+		fseek f 0 #seek_end
+		local fileSize = ftell f
+		fseek f 0 #seek_set
+		
+		-- Read and validate root CLUMP chunk
+		if (ftell f + 12) > fileSize then return false
+		local clumpID = readlong f #unsigned
+		local clumpSize = readlong f #unsigned
+		local clumpVersion = readlong f #unsigned
+		
+		if clumpID != 0x10 then return false  -- Not a DFF
+		
+		local clumpEnd = ftell f + clumpSize
+		if clumpEnd > fileSize then clumpEnd = fileSize
+		
+		-- Scan top-level chunks in CLUMP
+		while (ftell f + 12) <= clumpEnd and not hasSkin do (
+			local pos = ftell f
+			local chunkID = readlong f #unsigned
+			local chunkSize = readlong f #unsigned
+			local chunkVersion = readlong f #unsigned
+			local chunkEnd = ftell f + chunkSize
+			
+			if chunkEnd > fileSize then break
+			
+			-- Check if this is GeometryList (0x1A)
+			if chunkID == 0x1A then (
+				-- Scan chunks inside GeometryList
+				while (ftell f + 12) <= chunkEnd and not hasSkin do (
+					local geoPos = ftell f
+					local geoID = readlong f #unsigned
+					local geoSize = readlong f #unsigned
+					local geoVer = readlong f #unsigned
+					local geoEnd = ftell f + geoSize
+					
+					if geoEnd > fileSize then break
+					
+					-- Check if this is Geometry (0x0F)
+					if geoID == 0x0F then (
+						-- Scan extensions inside Geometry
+						while (ftell f + 12) <= geoEnd and not hasSkin do (
+							local extPos = ftell f
+							local extID = readlong f #unsigned
+							local extSize = readlong f #unsigned
+							local extVer = readlong f #unsigned
+							
+							if extID == 0x116 then (  -- Skin PLG found!
+								hasSkin = true
+								exit
+							)
+							
+							-- Skip extension data safely
+							local extEnd = ftell f + extSize
+							if extEnd <= fileSize and extEnd > ftell f then
+								fseek f extEnd #seek_set
+							else
+								break
+						)
+					)
+					
+					-- Skip to next geometry chunk safely
+					if geoEnd <= fileSize and geoEnd > ftell f then
+						fseek f geoEnd #seek_set
+					else
+						break
+				)
+			)
+			
+			-- Skip to next top-level chunk safely
+			if chunkEnd <= fileSize and chunkEnd > ftell f then
+				fseek f chunkEnd #seek_set
+			else
+				break
+		)
+		
+	) catch (
+		-- On any error, assume not a character
+		hasSkin = false
+	)
+	
+	-- Always reset to start of file for subsequent import
+	try (fseek f 0 #seek_set) catch ()
+	
+	return hasSkin
+)
+
 
 fn SetINI key value_= (
 	try (
@@ -108,6 +204,7 @@ fn getNum str = (
 )
 
 try (fileIn (scriptspath+"\\GTA_Tools(GF)\\DFFimp.ms")) catch (format "Error loading DFFimp.ms: %\n" (getCurrentException()))
+try (fileIn (scriptspath+"\\GTA_Tools(GF)\\CharDFFimp.ms")) catch (format "Error loading CharDFFimp.ms: %\n" (getCurrentException()))
 try (fileIn (scriptspath+"\\GTA_Tools(GF)\\DFFexp.ms") quiet:true) catch (format "Error loading DFFexp.ms: %\n" (getCurrentException()))
 try (fileIn (scriptspath+"\\GTA_Tools(GF)\\ui_2dfx.ms") quiet:true) catch (format "Error loading ui_2dfx.ms: %\n" (getCurrentException()))
 
@@ -270,7 +367,18 @@ local no_clump = #()
 			clearlistener()
 			cntLDffNow = 0
 			cntLDffMax = 0
-			DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile gfname)
+			
+			-- Detect character model vs world object
+			local isCharacter = hasSkinData f
+			
+			if isCharacter then (
+				format "Detected character model (has Skin PLG), using CharDFFin...\n"
+				CharDFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile gfname)
+			) else (
+				format "Detected world object, using DFFin...\n"
+				DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile gfname)
+			)
+			
 			fclose f
 			gc()
 		) else (
@@ -309,10 +417,23 @@ local no_clump = #()
 						else (
 							if no_clump.count == 1 then (
 								clearlistener()
-								DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname[i])
-								useclump.enabled = false
-								whichone.enabled = false
+								
+								-- Detect character model (has skin data) vs world object
+								local isCharacter = hasSkinData f
+								
+								if isCharacter then (
+								-- Character model: use CharDFFin
+								format "Detected character model (has Skin PLG), using CharDFFin...\n"
+								CharDFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname[i])
 							) else (
+								-- World object: use DFFin
+								format "Detected world object, using DFFin...\n"
+								DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname[i])
+							)
+							
+							useclump.enabled = false
+							whichone.enabled = false
+						) else (
 								fclose f
 								gfname = fname[i]
 								whichone.range = [1,no_clump.count,1]
@@ -344,7 +465,17 @@ local no_clump = #()
 							clearlistener()
 							cntLDffNow = 0
 							cntLDffMax = 0
-							DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname)
+							
+							-- Detect character model vs world object
+							local isCharacter = hasSkinData f
+							
+							if isCharacter then (
+								format "Detected character model (has Skin PLG), using CharDFFin...\n"
+								CharDFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname)
+							) else (
+								format "Detected world object, using DFFin...\n"
+								DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname)
+							)
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (

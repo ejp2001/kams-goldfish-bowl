@@ -1100,8 +1100,10 @@ fn rFrameList f Iscale showdetail = (
 		for i = 1 to frameAry.count do (
 			if classof frameAry[i].obj == dummy then ( --bone then (	
 				tmp = for b in BoneDataAry where b.boneID == (getUserProp FrameAry[i].obj "BoneID") collect b
-				setUserProp (frameAry[i].obj) "BoneType" tmp[1].boneType
-				setUserProp (frameAry[i].obj) "BoneIndex" tmp[1].boneIndex
+				if tmp.count > 0 then (
+					setUserProp (frameAry[i].obj) "BoneType" tmp[1].boneType
+					setUserProp (frameAry[i].obj) "BoneIndex" tmp[1].boneIndex
+				)
 			)--end if bone
 		)--end for
 	)--end BoneDataAry
@@ -1722,6 +1724,9 @@ if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
             
 	)--end if MExt
 
+	-- Enable material display in viewport
+	mtl.showInViewport = true
+
 	return mtl
     
 )
@@ -2115,14 +2120,18 @@ fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 			for i = 1 to ibm.count do (
 				ibm[i].pos = ibm[i].pos * Iscale
 				fms = for fm in FrameAry where (getUserProp fm.obj "BoneIndex") == (i - 1) collect fm
-				if i == 1 then (
-					setUserProp fms[1].obj "SPunknown" SkinData[4]
-					fms[1].obj.transform = ibm[i] * FrameAry[1].obj.transform
-					--format ">>%\n" fms[1].obj.transform
+				if fms.count > 0 then (
+					if i == 1 then (
+						setUserProp fms[1].obj "SPunknown" SkinData[4]
+						fms[1].obj.transform = ibm[i] * FrameAry[1].obj.transform
+						--format ">>%\n" fms[1].obj.transform
+					) else (
+						fms[1].obj.transform = inverse(ibm[i]) * FrameAry[1].obj.transform --* FrameAry[pid].transform
+						fms[1].obj.parent = FrameAry[(fms[1].parentID)].obj
+						if showdetail == true then format "% -> %\n" fms[1].obj.name FrameAry[(fms[1].parentID)].obj.name
+					)
 				) else (
-					fms[1].obj.transform = inverse(ibm[i]) * FrameAry[1].obj.transform --* FrameAry[pid].transform
-					fms[1].obj.parent = FrameAry[(fms[1].parentID)].obj
-					if showdetail == true then format "% -> %\n" fms[1].obj.name FrameAry[(fms[1].parentID)].obj.name
+					if showdetail == true then format "Warning: No frame found for BoneIndex %\n" (i - 1)
 				)
 			)--end for i
 
@@ -2155,17 +2164,22 @@ fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 			skn = skin()
 				
 			max modify mode
-			select RootObj
-			addmodifier RootObj skn
+			select MshAry[1]
+			addmodifier MshAry[1] skn
+			local boneCount = 0
 			for ii = 1 to ibm.count do (
 				tmp = for fm in FrameAry where (getUserProp fm.obj "BoneIndex") == (ii - 1) collect fm.obj
-				skinOps.addbone skn tmp[1] 0
+				if tmp.count > 0 then (
+					skinOps.addbone skn tmp[1] 0
+					boneCount += 1
 
-				for jj = 1 to 2 do (
-					skinOps.SetInnerRadius skn ii jj 0
-					skinOps.SetOuterRadius skn ii jj 0
+					for jj = 1 to 2 do (
+						skinOps.SetInnerRadius skn boneCount jj 0
+						skinOps.SetOuterRadius skn boneCount jj 0
+					)
+				) else (
+					format "Warning: No bone found for BoneIndex % (skipping)\n" (ii - 1)
 				)
-
 			)--end for ii
 			format "\nSkinning... Please Wait\n"
 			for jj = 1 to $.numVerts do (

@@ -606,7 +606,7 @@ fn rTexture f mtl texEx showdetail = (
 )
 --end rTexture				--<i6>--
 --
-fn rMaterial f texEx showdetail = (
+fn rMaterial f mattype texEx showdetail = (
 	if (readLong f) != 7 then ( format "Error in Material\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\t\tMaterial(7) Size: %\n" tmp
@@ -628,7 +628,10 @@ if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
 	Gamb = readFloat f
     Gspc = readFloat f
     Gdif = readFloat f
-	if GTA_Mtl != undefined then (
+	
+	format "CharDFFin: mattype=%, GTA_Mtl defined=%\n" mattype (GTA_Mtl != undefined)
+	
+	if mattype == 1 and GTA_Mtl != undefined then (
 		mtl = GTA_Mtl()
 		mtl.color = color colR colG colB
 		mtl.alpha = colA
@@ -744,12 +747,15 @@ if DebugMode == true then mtlflag[4] = true
             
 	)--end if MExt
 
+	-- Enable material display in viewport
+	mtl.showInViewport = true
+
 	return mtl
     
 )
 --end fn rMaterial			--<i7>--
 --
-fn rMaterialList f texEx showdetail = (
+fn rMaterialList f mattype texEx showdetail = (
 	if (readLong f) != 8 then ( format "Error in MaterialList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\tMaterialList(8) Size: %\n" tmp
@@ -760,18 +766,18 @@ fn rMaterialList f texEx showdetail = (
 	material_count = readLong f
 	if showdetail == true then format "\t\t\t\t->Material Count:%\n" material_count
 	for i = 1 to material_count do (readLong f #unsigned)
-    if material_count == 1 then thismtl = rMaterial f texEx showdetail
+    if material_count == 1 then thismtl = rMaterial f mattype texEx showdetail
     else (
         thismtl = MultiMaterial numsubs:material_count
     	for i = 1 to material_count do (
-	    	thismtl[i] = rMaterial f texEx showdetail
+	    	thismtl[i] = rMaterial f mattype texEx showdetail
 	    )
     )--end if/else
     return thismtl
 )
 --end fn rMaterialList		--<i8>--
 --
-fn rGeometry f Iscale texEx showdetail = (
+fn rGeometry f Iscale mattype texEx showdetail = (
 	if (readLong f) != 15 then ( format "Error in Geometry\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\tGeometry(15) Size: %\n" tmp
@@ -919,7 +925,7 @@ if DebugMode == true then (
 	setUserProp DFFmesh "TriStrip" bol	
 )
 
-    DFFmesh.material = rMaterialList f texEx showdetail
+    DFFmesh.material = rMaterialList f mattype texEx showdetail
 
 if DebugMode == true then (
 	if mtlflag[1] == true then setUserProp DFFmesh "Tex" true
@@ -972,8 +978,10 @@ if DebugMode == true then (
 --M------------
 --Main Import--
 ---------------
-fn DFFin f Iscale texEx Dummysize autoskin showdetail setsname = (
+fn CharDFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 
+	format "CharDFFin called: Iscale=%, mattype=%, texEx=%, Dummysize=%, autoskin=%, showdetail=%, setsname=%\n" Iscale mattype texEx Dummysize autoskin showdetail setsname
+	
 	local RootObj
     
 	bkupadd = ftell f
@@ -994,7 +1002,7 @@ fn DFFin f Iscale texEx Dummysize autoskin showdetail setsname = (
 		NumGeo = rGeometryList f showdetail
 		MshAry = #()
 		for i = 1 to NumGeo do (
-			msh = rGeometry f Iscale texEx showdetail 
+			msh = rGeometry f Iscale mattype texEx showdetail 
 			if msh == undefined then (return undefined)
 			append MshAry msh
 		)
