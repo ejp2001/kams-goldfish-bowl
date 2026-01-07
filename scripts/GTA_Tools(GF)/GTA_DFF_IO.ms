@@ -14,13 +14,15 @@ global errInfo_mass
 global errInfo_mass_
 global isIplImport = false
 
+-- Load IFP export/import functions if not already loaded
+if IFPioInfo == undefined then fileIn (scriptspath+"\\GTA_Tools(GF)\\gtaIFPio_Fn.ms") quiet:true 
+else if IFPioInfo() != 051014 then fileIn (scriptspath+"\\GTA_Tools(GF)\\gtaIFPio_Fn.ms") quiet:true
+
 fn pbUpdate = (
 	pbcount += 1
 	DFFexPara.pb.value = (((pbcount as float)/pbMax)*100)
 )
 
--- Detect if DFF contains skin data (character model vs world object)
--- Scan for Skin PLG chunk (0x116) only as proper chunk header
 -- Detect if DFF contains skin data (character model vs world object)
 -- Opens its own file handle to avoid interfering with import
 fn hasSkinData filePath = (
@@ -61,7 +63,7 @@ fn hasSkinData filePath = (
 			local chunkID = readlong testFile #unsigned
 			local chunkSize = readlong testFile #unsigned
 			local chunkVersion = readlong testFile #unsigned
-				local chunkEnd = ftell testFile + chunkSize
+			local chunkEnd = ftell testFile + chunkSize
 			
 			if chunkEnd > fileSize then (
 				break
@@ -115,7 +117,6 @@ fn hasSkinData filePath = (
 							)
 							
 							-- Skip extension data safely
-							local extEnd = ftell testFile + extSize
 							if extEnd <= fileSize and extEnd > ftell testFile then
 								fseek testFile extEnd #seek_set
 							else
@@ -149,6 +150,136 @@ fn hasSkinData filePath = (
 	return hasSkin
 )
 
+-- Export IFP animation from hierarchy root object
+-- Wraps the existing ExpsaIFP/expAnim functions to work with UI buttons
+fn ExportIFPFromRoot rootObj fname isAppend = (
+	if rootObj == undefined then (
+		format "ExportIFPFromRoot: No root object specified\n"
+		return false
+	)
+	
+	-- Collect hierarchy (root + all children recursively)
+	local hierarchy = #(rootObj)
+	local queue = #(rootObj)
+	while queue.count > 0 do (
+		local current = queue[1]
+		deleteItem queue 1
+		for child in current.children do (
+			append hierarchy child
+			append queue child
+		)
+	)
+	
+	format "Exporting IFP for % objects (root: %)\n" hierarchy.count rootObj.name
+	
+	-- Animation name should match the DFF/root object name
+	local animName = rootObj.name
+	if animName == undefined or animName.count == 0 then animName = "anim"
+	
+	-- Extract internal file name from IFP filename (without path and extension)
+	local internalName = getFilenameFile fname
+	if internalName == undefined or internalName.count == 0 then internalName = animName
+	
+	-- Ensure all objects in hierarchy have BoneID user properties
+	-- ExpsaIFP requires BoneID >= 0 to process animation keyframes
+	-- Only assign BoneIDs to objects that actually have animation keys
+	local boneIdSet = 0
+	for obj in hierarchy do (
+		local existingID = getUserProp obj "BoneID"
+		if existingID == undefined then (
+			-- Check if object has any keyframes (use try/catch for safety)
+			local hasKeys = false
+			try (
+				if obj.pos.controller.keys.count > 0 then hasKeys = true
+			) catch ()
+			try (
+				if obj.rotation.controller.keys.count > 0 then hasKeys = true
+			) catch ()
+			
+			-- Only assign BoneID if object has keyframes
+			if hasKeys then (
+				setUserProp obj "BoneID" boneIdSet
+				boneIdSet += 1
+				format "Assigned BoneID % to %\n" (boneIdSet - 1) obj.name
+			)
+		)
+	)
+	
+	try (
+		local f = undefined
+		local currentAnimCount = 1
+		local currentFileLength = 0
+		
+		if isAppend then (
+			-- For append mode, open in read/write mode to update header
+			f = fopen fname "rb+"
+			if f == undefined then (
+				format "Failed to open file for appending: %\n" fname
+				return false
+			)
+			
+			-- Read existing header
+			local headerID = readLong f
+			if headerID != 0x33504E41 then (
+				format "Not a valid SA IFP file (ANP3)\n"
+				fclose f
+				return false
+			)
+			
+			currentFileLength = readLong f
+			fseek f 24 #seek_cur  -- Skip internal name (24 bytes)
+			currentAnimCount = readLong f
+			
+			-- Seek to end of file to append new animation
+			fseek f 0 #seek_end
+			
+		) else (
+			-- Create new file
+			f = fopen fname "wb"
+			if f == undefined then (
+				format "Failed to open file: %\n" fname
+				return false
+			)
+			
+			-- Write SA format (ANP3) header
+			writeLong f 0x33504E41		-- ANP3
+			writeLong f 0				-- length placeholder
+			writeString f internalName	-- IFP internal name (e.g., "chiliad_int")
+			for i = 1 to (24 - internalName.count - 1) do writeByte f 0
+			writeLong f 1				-- 1 animation (will update if appending later)
+		)
+		
+		-- Export using the working ExpsaIFP function from gtaIFPio_Fn.ms
+		local thisLength = ExpsaIFP f hierarchy animName
+		
+		if thisLength == undefined then (
+			format "No keyframe animation found on % or its children\n" rootObj.name
+			fclose f
+			return false
+		)
+		
+		if isAppend then (
+			-- Update animation count and file length in header
+			fseek f 4 #seek_set
+			writeLong f (currentFileLength + thisLength)
+			fseek f 24 #seek_cur  -- Skip internal name
+			writeLong f (currentAnimCount + 1)
+		) else (
+			-- Update file length in header for new file
+			fseek f 4 #seek_set
+			writeLong f (thisLength + 28)
+		)
+		
+		fclose f
+		format "IFP export complete: % bytes\n" thisLength
+		return true
+		
+	) catch (
+		format "ExportIFPFromRoot error: %\n" (getCurrentException())
+		if f != undefined then fclose f
+		return false
+	)
+)
 
 fn SetINI key value_= (
 	try (
@@ -304,7 +435,7 @@ local no_clump = #()
         button useclump "Import" width:70 offset:[-3,0] enabled:false
 	)
 	group "" (
-		radiobuttons textype "Image Type:" labels:#("tga", "bmp","png") columns:3
+		radiobuttons textype "Image Type:" labels:#("tga", "bmp","png") columns:3 default:3
 		radiobuttons mattype "MATERIAL AS:" align:#left labels:#("GTAmaterial", "Standart") columns:1 offset:[15,5]
 		--spinner ISc "Import Scale: " fieldwidth:42 range:[0,100,SPscale] align:#right
 		button imp "Import DFF" width:120 height:30 align:#center
@@ -320,7 +451,6 @@ local no_clump = #()
 	
 	-- START: IFP Import UI (added after Restore button group)
 	group "Animation Import" (
-		checkbox skipPosKeys "Skip Position Keys" checked:false tooltip:"If checked, only rotation keys will be imported" align:#left
 		button IFPimp "Import IFP Animation" width:120 tooltip:"Import hierarchy animation from .ifp file to selected root object" align:#center
 	)
 	
@@ -333,7 +463,9 @@ local no_clump = #()
 				messagebox "ImportIFPToHierarchy function is not defined!\nMake sure DFFimp.ms loaded correctly." title:"Import IFP Error"
 			) else (
 				try (
-					ok = ImportIFPToHierarchy selection[1] undefined skipPosKeys.checked
+					-- Pass root object name as animation name to match
+					-- Always import position keys for world objects (skipPosKeys is false)
+					ok = ImportIFPToHierarchy selection[1] undefined false selection[1].name
 					if ok then messagebox "IFP animation imported successfully!" title:"Import IFP"
 				) catch (
 					local errMsg = getCurrentException()
