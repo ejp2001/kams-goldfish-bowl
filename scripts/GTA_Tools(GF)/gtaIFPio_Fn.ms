@@ -278,14 +278,17 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 					with animate on at time tm (
 						--SAbone.rotation = rot
 						in coordsys parent (
-							SAbone.pos = [0,0,0]
+							-- Store original position to preserve skeleton structure
+							local originalPos = SAbone.pos
+
 							SAbone.rotation = rot
 							if noPOSkey then (
-								-- Don't create position keys, just keep original position
-								deleteKeys SAbone.pos.controller
+								-- Don't create position keys, preserve original position
+								SAbone.pos = originalPos
 							) else (
 								-- Create position keys if KeyType 4 and not skipping
 								if KeyType == 4 then (
+									-- Use translation data from file (no [0,0,0] setting)
 									if SAbone.parent != undefined then
 										SAbone.pos = tlt
 									else SAbone.pos = tlt
@@ -296,8 +299,8 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 										pc.keys[tk].InTangentType = #linear
 									)catch()
 								) else (
-									-- KeyType 3 (rotation only) - delete any position keys
-									deleteKeys SAbone.pos.controller
+									-- KeyType 3 (rotation only) - preserve original position
+									SAbone.pos = originalPos
 								)
 							)
 						--	format "->%      time  = %\n" SAbone.rotation tm
@@ -306,11 +309,11 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 						if tm == 0.0 then (
 						with animate on at time (tm+1) (
 							in coordsys parent (
-							SAbone.pos = [0,0,0]
+							-- Only fix rotation tangent at frame 0, don't change position
 							SAbone.rotation = rot
 						)
-							deletekey SABone.rotation.controller 2
-							deletekey SABone.pos.controller 2
+							try (deletekey SABone.rotation.controller 2) catch ()
+							try (deletekey SABone.pos.controller 2) catch ()
 						)
 							)
 					)--end with animate
