@@ -568,7 +568,7 @@ fn CharRTexture f mtl texEx showdetail = (
 			df = mtl.colormap
 		) else (
 			mtl.diffusemap = bitmaptexture name:DTex filename:(DTex+texEx)
-			mtl.diffusemapAmount = 90
+			mtl.diffusemapAmount = 100
 			df =   mtl.diffusemap
 		)    
 		if TexFlag == 0x106 then df.filtering = 0
@@ -596,6 +596,11 @@ fn CharRTexture f mtl texEx showdetail = (
 		if TexFlag == 0x106 then df.filtering = 0
 		if TexFlag == 0x10102 then df.filtering = 1
 		if TexFlag == 0x10101 then df.filtering = 2
+		
+		-- Set RGB Channel Output to "Alpha as Gray" for proper transparency
+		try (
+			df.rgbOutput = 1  -- 0=RGB, 1=Alpha as Gray
+		) catch ()
 	)
 	if showdetail == true then format "\t\t\t\t\t\t->Texture: %\tMask: %\n" DTex MTex
 	if (readLong f) != 3 then ( format "Error in Texture Extension\n"; exit )
