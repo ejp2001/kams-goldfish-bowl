@@ -1,0 +1,2 @@
+All files were decrypted from the original Kams .mse scripts using quickbms.
+Details at https://cocoalopez.com/blog/?p=4295 and http://aluigi.altervista.org/quickbms.htm.
