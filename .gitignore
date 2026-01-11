@@ -10,6 +10,13 @@ Thumbs.db
 autoback/
 previews/
 
+# Local backups and work-in-progress files
+backups/
+*_backup.ms
+*_old.ms
+*_OLD.ms
+*_test.ms
+
 # Reference files (not for public distribution)
 originals/
 # Downloaded documentation archive
