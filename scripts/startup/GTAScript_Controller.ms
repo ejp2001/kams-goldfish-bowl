@@ -11,7 +11,7 @@ fn addKamsToolsMenu_ = (
 		buttonText:"Export to CST"
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
-		try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\CST_Export.ms")   )
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\CST_Export.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find CST_Export.ms script"
 	)
 	
@@ -20,7 +20,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\CST_Import.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\CST_Import.ms")  
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find CST_Import.ms script"
 	)
 	
@@ -28,21 +28,21 @@ fn addKamsToolsMenu_ = (
 		buttonText:"DFF IO"
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
-		try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_DFF_IO.ms")   )
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find DFF IO script"
 	)
 	macroScript kams_colio
 		buttonText:"COL IO"
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
-		try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_COL_IO.mse")   )
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_COL_IO.ms")   )
 		catch messagebox "Please re-install my Collision IO script!" title:"Can't find Collision IO script"
 	)
 	macroScript kams_mapio
 		buttonText:"Map IO"
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
-		try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_Map_IO.ms")   )
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_Map_IO.ms")   )
 		catch messagebox "Please re-install my Map IO script!" title:"Can't find Map IO script"
 	)
 	
@@ -51,7 +51,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\VC_smoothTool\\VC_smoothTool.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\VC_smoothTool\\VC_smoothTool.ms")  
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find VC_smoothTool.ms script"
 	)
 	
@@ -60,7 +60,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\GTA_Water_IO\\GTAWaterIO.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\GTA_Water_IO\\GTAWaterIO.ms")  
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find GTAWaterIO.ms script"
 	)
 	
@@ -69,7 +69,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\emt_startup.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\emt_startup.ms")  
 			runEmt()
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find Map IO script"
 	)
@@ -79,7 +79,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\BitmapsManager\\BitmapsManager.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\BitmapsManager\\BitmapsManager.ms")  
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find BitmapsManager.ms script"
 	)
 	
@@ -88,7 +88,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\setVAlphaOnBorder.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\setVAlphaOnBorder.ms")  
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find setVAlphaOnBorder.ms script"
 	)
 	
@@ -98,7 +98,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try ( 
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\FixDifColor.ms")  
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\FixDifColor.ms")  
 		)catch messagebox "Please re-install my Map IO script!" title:"Can't find FixDifColor.ms script"
 	)
 	
@@ -387,7 +387,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try (
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\Vehicle_Scale_Helper.ms")
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\Vehicle_Scale_Helper.ms")
 		) catch messagebox "Error!" title:"Can't run script"
 	)
 	
@@ -396,7 +396,7 @@ fn addKamsToolsMenu_ = (
 		category:"KAMs_Scripts"
 		internalCategory:"KAMs_Scripts" (
 		try (
-			fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\object_explode.ms")
+			fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\object_explode.ms")
 		) catch messagebox "Error!" title:"Can't run script"
 	)
 	
@@ -475,17 +475,19 @@ fn addKamsToolsMenu_ = (
 		subMenuIndex = mainMenuBar.numItems() 0
 		mainMenuBar.addItem subMenuItem subMenuIndex
 		menuMan.updateMenuBar()
-	) catch messagebox ("Error creating GTA Tools menu!\n\nYou can run scripts manually from the folder:\n" + scriptspath+"\GTA_Tools(GF)\Tools\\") title: "Kam's GTA Scripts (GF)"
+	) catch messagebox ("Error creating GTA Tools menu!\n\nYou can run scripts manually from the folder:\n" + scriptspath+"\GTA_Tools_2026\Tools\\") title: "Kam's GTA Scripts (GF)"
 )
 
-utility Kams_Scripts "Kam's GTA Scripts (GF)" (
+utility Kams_Scripts "GTA Tools 2026" (
 	group "" (
 		button script01 "DFF IO" width:140 align:#center
-		button script02 "Collision IO" width:140 align:#center --offset:[0,-5]
-		button script03 "Map IO" width:140 align:#center --offset:[0,-5]
+		button script06 "Character IO" width:140 align:#center offset:[0,-5]
+		button script02 "Collision IO" width:140 align:#center offset:[0,-5]
+		button script03 "Map IO" width:140 align:#center offset:[0,-5]
+		button script12 "2dfx Editor" width:140 align:#center offset:[0,-5]
 	)
 		on script01 pressed do ( 
-			try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_DFF_IO.ms")   )
+			try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find DFF IO script"
 	)		
 	
@@ -493,29 +495,48 @@ utility Kams_Scripts "Kam's GTA Scripts (GF)" (
 		addKamsToolsMenu_()		
 	)
 	
-		on script02 pressed do (   
-			try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_COL_IO.mse")   )
-		catch messagebox "Please re-install my Collision IO script!" title:"Can't find Collision IO script"
+		on script06 pressed do (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_CHAR_IO.ms")   )
+		catch messagebox "Please re-install my Character IO script!" title:"Can't find Character IO script"
 	)
 
-		on script03 pressed do ( 
-			try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_Map_IO.ms")   )
+		on script02 pressed do (   
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_COL_IO.ms")   )
+		catch messagebox "Please re-install my COL IO script!" title:"Can't find COL IO script"
+	)
+
+	on script03 pressed do ( 
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_Map_IO.ms")   )
 		catch messagebox "Please re-install my Map IO script!" title:"Can't find Map IO script"
-	)	
+	)
+	
+	on script12 pressed do ( 
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_2DFX_IO.ms")   )
+		catch messagebox "Please re-install my 2dfx Editor script!" title:"Can't find 2dfx Editor script"
+	)
+	
 	group "Animation" (
 		button script05 "IFP dump" width:140 align:#center tooltip:"This script is for GMax only"--offset:[0,-5]
-		button script06 "IFP IO" width:140 align:#center offset:[0,-5]
 	)
 			on script05 pressed do (
-				try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_IFP_dump.ms")   )
-			catch messagebox "Please re-install my IFP IO script!" title:"Can't find Animation IO script"
-		)	
-			on script06 pressed do (
-				try ( fileIn (scriptspath+"\\GTA_Tools(GF)\\GTA_IFP_IO.ms")   )
+				try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_IFP_dump.ms")   )
 			catch messagebox "Please re-install my IFP IO script!" title:"Can't find Animation IO script"
 		)
+	
+	on script11 pressed do (
+		local dffPath = getopenfilename caption:"Select DFF to Analyze" types:"DFF Files (*.dff)|*.dff|All Files (*.*)|*.*|"
+		if dffPath != undefined then (
+			try (
+				fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_Editor.ms")
+				OpenDFFEditor dffPath
+			) catch (
+				messagebox ("Failed to load DFF Editor:\n" + (getCurrentException())) title:"Error"
+			)
+		)
+	)	
 
 	group "Tools" (
+		button script11 "DFF Binary Editor" width:140 align:#center
 		button script04 "Prelite Tools" width:140 align:#center 
 		button script07_ "Align pivot to center" width:140 align:#center
 		button script09 "Vehicle Scale Helper" width:140 align:#center
@@ -523,7 +544,7 @@ utility Kams_Scripts "Kam's GTA Scripts (GF)" (
 
 
 		on script09 pressed do (
-			try fileIn (scriptspath+"\\GTA_Tools(GF)\\tools\\Vehicle_Scale_Helper.ms")
+			try fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\Vehicle_Scale_Helper.ms")
 		catch messagebox "Error!" title:"Can't run script"
 	)
 	
@@ -772,8 +793,7 @@ utility Kams_Scripts "Kam's GTA Scripts (GF)" (
 	)
 
 	-----------------------------------------
-	button script08 "About"  align:#left across:2 height:16 tooltip:"Authors"
-	label SC_t1 "v0.3.7   " align:#right
+	button script08 "About"  align:#left height:16 tooltip:"Authors"
 	on script08 pressed do (
 		try (DestroyDialog KAM_About) catch()
 		rollout KAM_About "Authors (c)"    (
@@ -781,12 +801,16 @@ utility Kams_Scripts "Kam's GTA Scripts (GF)" (
 			label about_2 "Kam, Odie, Pioneer"
 			HyperLink l_top "Topic on the Gta Forums" align:#center   height:18 address:"http://gtaforums.com/topic/218318-rel-kams-maxscript-going-over-quick-update/" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225)
 			
-			label about_3 " -- Upd  v0.3.7 --" offset: [0.0,7.0,0.0]
+			label about_3 " -- 2018 Edition --" offset: [0.0,7.0,0.0]
 			label about_0 "[13.05.2020]"
 			label about_4 "by Goldfish"
 			label about_5 "(Goldfish-1994@yandex.ru)"
 			HyperLink l_sup "Support" align:#center   height:18 address:"https://vk.com/topic-99725313_37821803" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225) 
-			HyperLink l_vk "VK"  align:#center  height:18 address:"https://vk.com/vk.goldfish" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225) 
+			HyperLink l_vk "VK"  align:#center  height:18 address:"https://vk.com/vk.goldfish" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225)
+			
+			label about_6 " -- 2026 Edition --" offset: [0.0,7.0,0.0]
+			label about_7 "[09.01.2026]"
+			label about_8 "by E2001"
 		)
 		createDialog KAM_About
 	)

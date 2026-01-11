@@ -278,7 +278,7 @@ fn rClump f showdetail = (
 )
 --end fn rClump			--<i1>--
 --
-fn rFrameList f Iscale showdetail setsname = (
+fn rFrameList f Iscale showdetail = (
 	if (readLong f) != 14 then ( format "Error in FrameList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\tFrameList(14) Size: %\n" tmp
@@ -330,14 +330,9 @@ fn rFrameList f Iscale showdetail setsname = (
                 )--end case of
 			)--end while		
 		) else ( 
-			if ver == 0x1803FFFF then ( 
-				-- Use filename instead of generic "Skin_Mesh"
-				if setsname != undefined then (
-					frameAry[i].name = setsname
-				) else (
-					frameAry[i].name = "Skin_Mesh"
-				)
-            )
+			-- Leave name undefined if no extension data
+			-- Geometry name will be assigned later from mesh data
+			frameAry[i].name = undefined
 		) --end if/else
 	)--end for i
 
@@ -481,12 +476,13 @@ fn rMaterialSplit thismesh file showdetail = (
 				tpt = [a1,a2,a3]
 				aaa = finditem tary tpt
 				--shit zmod2 faces index changed(12Aug08)--
-                if (aaa == 0)AND(LetsRockandRoll != True) then (
-					delete thismesh
-					if showdetail == true then clearlistener()
-					messagebox "This is a Non-Standard DFF !" title:"Import Aborted"
-					return undefined
-                )
+				-- BYPASS: Non-standard DFF check disabled for compatibility
+                -- if (aaa == 0)AND(LetsRockandRoll != True) then (
+				--	delete thismesh
+				--	if showdetail == true then clearlistener()
+				--	messagebox "This is a Non-Standard DFF !" title:"Import Aborted"
+				--	return undefined
+                -- )
 				if aaa == 0 then (
 					tpt = [a2,a1,a3]
 					aaa = finditem tary tpt
@@ -573,8 +569,8 @@ fn rTexture f mtl texEx showdetail = (
 			df = mtl.colormap
 		) else (
 			mtl.diffusemap = bitmaptexture name:DTex filename:(DTex+texEx)
-			mtl.diffusemapAmount = 90
-			df =   mtl.diffusemap
+			showTextureMap mtl mtl.diffusemap true
+			df = mtl.diffusemap
 		)    
 		if TexFlag == 0x106 then df.filtering = 0
 		if TexFlag == 0x10102 then df.filtering = 1
@@ -611,7 +607,7 @@ fn rTexture f mtl texEx showdetail = (
 )
 --end rTexture				--<i6>--
 --
-fn rMaterial f texEx showdetail = (
+fn rMaterial f mattype texEx showdetail = (
 	if (readLong f) != 7 then ( format "Error in Material\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\t\tMaterial(7) Size: %\n" tmp
@@ -633,7 +629,8 @@ if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
 	Gamb = readFloat f
     Gspc = readFloat f
     Gdif = readFloat f
-	if GTA_Mtl != undefined then (
+	gtaMatFlag = true
+	if (mattype == 1) and (GTA_Mtl != undefined) then (
 		mtl = GTA_Mtl()
 		mtl.color = color colR colG colB
 		mtl.alpha = colA
@@ -645,6 +642,7 @@ if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
 if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
 
 	) else (
+		gtaMatFlag = false
 		mtl = StandardMaterial()
 		mtl.glossiness = 0
 		mtl.soften = 0
@@ -754,7 +752,7 @@ if DebugMode == true then mtlflag[4] = true
 )
 --end fn rMaterial			--<i7>--
 --
-fn rMaterialList f texEx showdetail = (
+fn rMaterialList f mattype texEx showdetail = (
 	if (readLong f) != 8 then ( format "Error in MaterialList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\tMaterialList(8) Size: %\n" tmp
@@ -765,18 +763,18 @@ fn rMaterialList f texEx showdetail = (
 	material_count = readLong f
 	if showdetail == true then format "\t\t\t\t->Material Count:%\n" material_count
 	for i = 1 to material_count do (readLong f #unsigned)
-    if material_count == 1 then thismtl = rMaterial f texEx showdetail
+    if material_count == 1 then thismtl = rMaterial f mattype texEx showdetail
     else (
         thismtl = MultiMaterial numsubs:material_count
     	for i = 1 to material_count do (
-	    	thismtl[i] = rMaterial f texEx showdetail
+	    	thismtl[i] = rMaterial f mattype texEx showdetail
 	    )
     )--end if/else
     return thismtl
 )
 --end fn rMaterialList		--<i8>--
 --
-fn rGeometry f Iscale texEx showdetail = (
+fn rGeometry f Iscale mattype texEx showdetail = (
 	if (readLong f) != 15 then ( format "Error in Geometry\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\tGeometry(15) Size: %\n" tmp
@@ -900,7 +898,7 @@ fn rGeometry f Iscale texEx showdetail = (
 			tx = readFloat f
 			ty = readFloat f
 			tz = readFloat f
-			setNormal DFFmesh i [tx,ty,tz]
+			--setNormal DFFmesh i [tx,ty,tz]  -- DISABLED: Skip explicit normals for clean topology
 		)--end for i
 	)--end Normals
 
@@ -924,7 +922,7 @@ if DebugMode == true then (
 	setUserProp DFFmesh "TriStrip" bol	
 )
 
-    DFFmesh.material = rMaterialList f texEx showdetail
+    DFFmesh.material = rMaterialList f mattype texEx showdetail
 
 if DebugMode == true then (
 	if mtlflag[1] == true then setUserProp DFFmesh "Tex" true
@@ -977,7 +975,7 @@ if DebugMode == true then (
 --M------------
 --Main Import--
 ---------------
-fn DFFin f Iscale texEx Dummysize autoskin showdetail setsname = (
+fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 
 	local RootObj
     
@@ -993,13 +991,15 @@ fn DFFin f Iscale texEx Dummysize autoskin showdetail setsname = (
 		fseek f bkupadd #seek_set
 
 		if showdetail == true then clearlistener()
+		format "Importing %...\n" setsname
 		SkinData = undefined
 		cpary = rClump f showdetail
-		FrameAry = rFrameList f Iscale showdetail setsname
+		FrameAry = rFrameList f Iscale showdetail
 		NumGeo = rGeometryList f showdetail
+		format "Reading % geometr%...\n" NumGeo (if NumGeo == 1 then "y" else "ies")
 		MshAry = #()
 		for i = 1 to NumGeo do (
-			msh = rGeometry f Iscale texEx showdetail 
+			msh = rGeometry f Iscale mattype texEx showdetail 
 			if msh == undefined then (return undefined)
 			append MshAry msh
 		)
