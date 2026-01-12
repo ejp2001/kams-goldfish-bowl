@@ -338,14 +338,15 @@ rollout aboutRoll "About" (
 
 rollout DFFinPara "Import DFF" (
 
+
 local fname = undefined
 local no_clump = #()
 
+Group "Multi. Clump" (
+	spinner whichone "" type:#integer range:[1,1,1] align:#left fieldwidth:35 offset:[-3,3] across:2 enabled:false
+	button useclump "Import" width:70 offset:[-3,0] enabled:false
+)
 
-	Group "Multi. Clump" (
-        spinner whichone "" type:#integer range:[1,1,1] align:#left fieldwidth:35 offset:[-3,3] across:2 enabled:false
-        button useclump "Import" width:70 offset:[-3,0] enabled:false
-	)
 	group "" (
 		radiobuttons textype "Image Type:" labels:#("tga", "bmp","png") columns:3 default:3 tooltip:"Texture file extension to search for when loading materials"
 		radiobuttons mattype "MATERIAL AS:" align:#left labels:#("GTA Material", "Standard") columns:1 offset:[15,5] tooltip:"GTA Material (supports 2dfx effects) or Standard (Max native)"

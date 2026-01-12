@@ -81,6 +81,8 @@ rollout importRoll "Import" (
 	radioButtons materialType "Material:" labels:#("GTA Material", "Standard") columns:2 default:1 align:#center tooltip:"GTA Material (supports 2dfx) or Standard (Max native)"
 	spinner impScale "Import Scale:" fieldwidth:42 range:[0,100,1.0] align:#left tooltip:"Scale multiplier (1.0=game size, 10.0=easier to edit)"
 	button loaddff "Import Character DFF" width:200 height:28 align:#center tooltip:"Import skinned character with Skin modifier and bone weights"
+
+
 	
 	-- ===========================
 	-- EVENT HANDLERS - IMPORT
@@ -129,50 +131,31 @@ rollout importRoll "Import" (
 	)
 	
 	-- Import DFF with character-specific options
-	on loaddff pressed do (
-		fname = getopenfilename caption:"Read Character DFF File" types:"Character DFF (*.dff)|*.dff|"
+
+		-- Import DFF with character-specific options
+		on loaddff pressed do (
+			fname = getopenfilename caption:"Read Character DFF File" types:"Character DFF (*.dff)|*.dff|"
 			if fname != undefined then (
-			-- DISABLED: Character validation (allow non-skinned characters)
-			-- local hasChar = false
-			-- local testFile = fopen fname "rb"
-			-- if testFile != undefined then (
-			--	fseek testFile 0 #seek_end
-			--	local fileEnd = ftell testFile
-			--	fseek testFile 0 #seek_set
-			--	-- Simple scan: look for Skin PLG chunk ID (0x0116)
-			--	while (ftell testFile) < (fileEnd - 4) and not hasChar do (
-			--		local val = readLong testFile #unsigned
-			--		if val == 0x0116 then hasChar = true
-			--	)
-			--	fclose testFile
-			-- )
-			-- 
-			-- if not hasChar then (
-			--	Messagebox "NOT a character model!\n\nNo Skin PLG (0x0116 chunk) detected.\nThis tool is for skinned characters only (CJ, peds, etc.)\n\nUse DFF IO for world objects, props, and vehicles." title:"Character Validation Failed"
-			--	return undefined
-			-- )
-			
-			f = fopen fname "rb"
-			if f == undefined then ( 
-				Messagebox "Can't open the file!" title:"I/O Error" 
-			) else (
-				-- Get texture extension from radio button
-				local texExt = case textype.state of (
-					1: ".tga"
-					2: ".bmp"
-					3: ".png"
+				f = fopen fname "rb"
+				if f == undefined then ( 
+					Messagebox "Can't open the file!" title:"I/O Error" 
+				) else (
+					-- Get texture extension from radio button
+					local texExt = case textype.state of (
+						1: ".tga"
+						2: ".bmp"
+						3: ".png"
+					)
+					-- Get material type (1 = GTA Material, 2 = Standard)
+					local matType = materialType.state  -- Direct: radio 1 -> GTA, radio 2 -> Standard
+					format "Material Type Selected: % (1=GTA, 2=Standard)\n" matType
+					-- Call DFFin from CharDFFimp.ms with scale
+					DFFin f impScale.value matType texExt 0.1 true false (getFilenameFile fname)
 				)
-				
-				-- Get material type (1 = GTA Material, 2 = Standard)
-				local matType = materialType.state  -- Direct: radio 1 -> GTA, radio 2 -> Standard
-				format "Material Type Selected: % (1=GTA, 2=Standard)\n" matType
-				-- Call DFFin from CharDFFimp.ms with scale
-				DFFin f impScale.value matType texExt 0.1 true false (getFilenameFile fname)
+				fclose f
+				gc()
 			)
-			fclose f
-			gc()
 		)
-	)
 )--end rollout importRoll
 
 /*

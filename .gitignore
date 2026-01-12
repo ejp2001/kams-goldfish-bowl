@@ -23,3 +23,7 @@ originals/
 misc/
 # Research files with leaked source code
 research/
+
+# Ignore deployment scripts and config
+*.ps1
+*.yaml
