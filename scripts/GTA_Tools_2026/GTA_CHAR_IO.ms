@@ -31,6 +31,40 @@ AnimInfo = #()
 ifpname = undefined
 PendingAnimData = #()  -- Stores data for new animations not yet written to file
 
+-- Settings persistence functions
+fn SaveImportSettings matTypeVal texTypeVal scaleVal = (
+	try (
+		local iniFile = scriptsPath + "GTA_Tools_2026\\settings.ini"
+		setINISetting iniFile "Import_Shared" "mattype" (matTypeVal as string)
+		setINISetting iniFile "Import_Shared" "textype" (texTypeVal as string)
+		setINISetting iniFile "Character_Import" "scale" (scaleVal as string)
+		format "Character settings saved: mattype=% textype=% scale=%\n" matTypeVal texTypeVal scaleVal
+	) catch (
+		format "Error saving character import settings: %\n" (getCurrentException())
+	)
+)
+
+fn LoadImportSettings = (
+	try (
+		local iniFile = scriptsPath + "GTA_Tools_2026\\settings.ini"
+		local matVal = getINISetting iniFile "Import_Shared" "mattype"
+		local texVal = getINISetting iniFile "Import_Shared" "textype"
+		local scaleVal = getINISetting iniFile "Character_Import" "scale"
+		
+		local result = #(1, 3, 1.0)  -- Defaults: GTA material, PNG, 1.0 scale
+		
+		if matVal != "" then result[1] = matVal as integer
+		if texVal != "" then result[2] = texVal as integer
+		if scaleVal != "" then result[3] = scaleVal as float
+		
+		format "Character settings loaded: mattype=% textype=% scale=%\n" result[1] result[2] result[3]
+		return result
+	) catch (
+		format "Error loading character import settings, using defaults\n"
+		return #(1, 3, 1.0)  -- Defaults
+	)
+)
+
 /*
 =============================================================================
    SECTION 1: CHARACTER DFF IMPORT
@@ -43,14 +77,56 @@ PendingAnimData = #()  -- Stores data for new animations not yet written to file
 -- ROLLOUT 1: DFF IMPORT
 -- ===========================
 rollout importRoll "Import" (
-	radioButtons textype "Texture:" labels:#("TGA", "BMP", "PNG") columns:3 default:3 align:#center
-	radioButtons materialType "Material:" labels:#("GTA Material", "Standard") columns:2 default:1 align:#center
-	spinner impScale "Import Scale:" fieldwidth:42 range:[0,100,1.0] align:#left
-	button loaddff "Import Character DFF" width:200 height:28 align:#center tooltip:"Import skinned character model"
+	radioButtons textype "Texture:" labels:#("TGA", "BMP", "PNG") columns:3 default:3 align:#center tooltip:"Texture file extension (.tga, .bmp, or .png)"
+	radioButtons materialType "Material:" labels:#("GTA Material", "Standard") columns:2 default:1 align:#center tooltip:"GTA Material (supports 2dfx) or Standard (Max native)"
+	spinner impScale "Import Scale:" fieldwidth:42 range:[0,100,1.0] align:#left tooltip:"Scale multiplier (1.0=game size, 10.0=easier to edit)"
+	button loaddff "Import Character DFF" width:200 height:28 align:#center tooltip:"Import skinned character with Skin modifier and bone weights"
 	
 	-- ===========================
 	-- EVENT HANDLERS - IMPORT
 	-- ===========================
+	
+	-- Load saved settings on rollout open
+	on importRoll open do (
+		local settings = LoadImportSettings()
+		materialType.state = settings[1]
+		textype.state = settings[2]
+		impScale.value = settings[3]
+	)
+	
+	-- Save settings when changed
+	on materialType changed state do (
+		SaveImportSettings materialType.state textype.state impScale.value
+	)
+	
+	on textype changed state do (
+		SaveImportSettings materialType.state textype.state impScale.value
+	)
+	
+	on impScale changed val do (
+		SaveImportSettings materialType.state textype.state impScale.value
+	)
+	
+	-- Load saved settings on rollout open
+	on importRoll open do (
+		local settings = LoadImportSettings()
+		materialType.state = settings[1]
+		textype.state = settings[2]
+		impScale.value = settings[3]
+	)
+	
+	-- Save settings when changed
+	on materialType changed state do (
+		SaveImportSettings materialType.state textype.state impScale.value
+	)
+	
+	on textype changed state do (
+		SaveImportSettings materialType.state textype.state impScale.value
+	)
+	
+	on impScale changed val do (
+		SaveImportSettings materialType.state textype.state impScale.value
+	)
 	
 	-- Import DFF with character-specific options
 	on loaddff pressed do (
@@ -111,7 +187,7 @@ rollout importRoll "Import" (
 -- ROLLOUT 2: ANIMATION
 -- ===========================
 rollout animateRoll "Animate" (
-	button loadifp "Load IFP File" width:120 align:#center tooltip:"Load animation file"
+	button loadifp "Load IFP File" width:120 align:#center tooltip:"Load skeletal animation file (.ifp) for editing"
 	label lbl1 "Anim. File:" align:#left offset:[30,5]
 	label lbl2 "Total Animation:" align:#left offset:[30,0]
 	label lbl3 "Internal Name:" align:#left offset:[30,0]
@@ -119,32 +195,32 @@ rollout animateRoll "Animate" (
 	
 	label lblSpacer1 "" height:8
 	
-	button btnRename "Rename" width:80 tooltip:"Rename selected animation" across:2
-	button btnDelete "Delete" width:80 tooltip:"Remove selected animation"
-	button btnMoveUp "Move UP" width:80 tooltip:"Move animation up in list" across:2
-	button btnMoveDown "Move DOWN" width:80 tooltip:"Move animation down in list"
-	button btnSaveNew "Add New Animation" width:120 tooltip:"Add timeline as new animation to this IFP" align:#center
-	button ReplaceAnim "Replace Animation" width:120 align:#center tooltip:"Replace selected animation in loaded IFP"
-	button saveAnim "Export New IFP" width:120 align:#center tooltip:"Export selection as new IFP file"
-	radioButtons formatType "Format:" labels:#("ANP3 (SA)", "ANPK (III/VC)") columns:2 default:1 align:#center offset:[0,0]
+	button btnRename "Rename" width:80 tooltip:"Rename selected animation (use Save File after)" across:2
+	button btnDelete "Delete" width:80 tooltip:"Remove selected animation from list (use Save File after)"
+	button btnMoveUp "Move UP" width:80 tooltip:"Move animation up in list order (affects in-game loading)" across:2
+	button btnMoveDown "Move DOWN" width:80 tooltip:"Move animation down in list order (affects in-game loading)"
+	button btnSaveNew "Add New Animation" width:120 tooltip:"Add current timeline as new animation to loaded IFP" align:#center
+	button ReplaceAnim "Replace Animation" width:120 align:#center tooltip:"Replace selected animation with current timeline"
+	button saveAnim "Export New IFP" width:120 align:#center tooltip:"Export current timeline as brand new IFP file"
+	radioButtons formatType "Format:" labels:#("ANP3 (SA)", "ANPK (III/VC)") columns:2 default:1 align:#center offset:[0,0] tooltip:"SA uses ANP3 format, III/VC use ANPK format"
 	checkbox useBoneID "Sibling" align:#left checked:false enabled:false offset:[85,-5]
 	
 	label lblSpacer2 "" height:8
 	
-	button RecOrg "M" width:17 align:#left tooltip:"Record Original Pose" across:3
-	button apyAnim "Apply Animation" width:86 align:#center tooltip:"Apply to selected objects with matching names"
-	button ResetPose "R" width:17 align:#right tooltip:"Reset to original pose"
-	checkbox skipPos "Skip Position keys" align:#right offset:[5,-4]
+	button RecOrg "M" width:17 align:#left tooltip:"Memorize current pose as original (for Reset button)" across:3
+	button apyAnim "Apply Animation" width:86 align:#center tooltip:"Apply selected animation to character bones (matches by name)"
+	button ResetPose "R" width:17 align:#right tooltip:"Reset character to memorized original pose"
+	checkbox skipPos "Skip Position keys" align:#right offset:[5,-4] tooltip:"Ignore position keyframes (rotation only, for in-place animations)"
 	
 	label lblSpacer3 "" height:8
 	
-	spinner astart "Start" fieldwidth:30 type:#integer range:[0,10000,0] across:2
-	spinner aend "End" fieldwidth:30 type:#integer range:[0,10000,0]
-	button batAnim "Batch Animation" width:122 align:#center tooltip:"Apply multiple animations"
+	spinner astart "Start" fieldwidth:30 type:#integer range:[0,10000,0] across:2 tooltip:"Starting frame for batch export"
+	spinner aend "End" fieldwidth:30 type:#integer range:[0,10000,0] tooltip:"Ending frame for batch export"
+	button batAnim "Batch Animation" width:122 align:#center tooltip:"Export multiple animations at once (range-based)"
 	
 	label lblSpacer4 "" height:8
 	
-	button btnSaveFile "Save File" width:120 tooltip:"Save renamed/deleted/moved animations to IFP file" align:#center
+	button btnSaveFile "Save File" width:120 tooltip:"Save all changes (rename/delete/move) to IFP file" align:#center
 	label lblInfo3 "Use 'Save File' after renaming/deleting/moving" align:#center
 	
 	-- ===========================

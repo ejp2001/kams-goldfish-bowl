@@ -656,6 +656,17 @@ if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
 	for i = 1 to texture_count do (
 		rTexture f mtl texEx showdetail
 	)
+	
+	-- Name material after diffuse texture if present
+	if isKindOf mtl GTA_Mtl then (
+		if mtl.colormap != undefined and classof mtl.colormap == Bitmaptexture then (
+			mtl.name = mtl.colormap.name
+		)
+	) else (
+		if mtl.diffusemap != undefined and classof mtl.diffusemap == Bitmaptexture then (
+			mtl.name = mtl.diffusemap.name
+		)
+	)
 
 	if (readLong f) != 3 then ( format "Error in Material Extension[Pos: %]\n" (ftell f); exit )
 	MExt = readLong f #unsigned
@@ -746,6 +757,9 @@ if DebugMode == true then mtlflag[4] = true
 		)--end while 
             
 	)--end if MExt
+
+	-- Enable material display in viewport
+	mtl.showInViewport = true
 
 	return mtl
     
@@ -1027,6 +1041,9 @@ if DebugMode == true then ( try(setUserProp MshAry[(Idx[2])] "ATM" Idx[4])catch(
 			if FrameAry[i].name != undefined then (
 				setUserProp FrameAry[i].obj "FrameName" (stripSpace FrameAry[i].name)
 				FrameAry[i].obj.name = FrameAry[i].name
+			) else if setsname != undefined then (
+				-- Use filename as fallback when frame has no name
+				FrameAry[i].obj.name = setsname
 			)
 		)
         

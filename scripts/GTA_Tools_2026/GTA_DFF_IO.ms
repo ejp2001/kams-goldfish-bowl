@@ -165,6 +165,36 @@ fn ExportIFPFromRoot rootObj fname isAppend = (
 	)
 )
 
+fn SaveImportSettings matTypeVal texTypeVal = (
+	try (
+		local iniFile = scriptsPath + "GTA_Tools_2026\settings.ini"
+		setINISetting iniFile "Import_Shared" "mattype" (matTypeVal as string)
+		setINISetting iniFile "Import_Shared" "textype" (texTypeVal as string)
+		format "Settings saved: mattype=% textype=%\n" matTypeVal texTypeVal
+	) catch (
+		format "Error saving import settings: %\n" (getCurrentException())
+	)
+)
+
+fn LoadImportSettings = (
+	try (
+		local iniFile = scriptsPath + "GTA_Tools_2026\settings.ini"
+		local matVal = getINISetting iniFile "Import_Shared" "mattype"
+		local texVal = getINISetting iniFile "Import_Shared" "textype"
+		
+		local result = #(1, 3)  -- Defaults: GTA material, PNG
+		
+		if matVal != "" then result[1] = matVal as integer
+		if texVal != "" then result[2] = texVal as integer
+		
+		format "Settings loaded: mattype=% textype=%\n" result[1] result[2]
+		return result
+	) catch (
+		format "Error loading import settings, using defaults\n"
+		return #(1, 3)  -- Defaults
+	)
+)
+
 fn SetINI key value_= (
 	try (
 		if  key == "Exp_NOR" then (
@@ -317,10 +347,29 @@ local no_clump = #()
         button useclump "Import" width:70 offset:[-3,0] enabled:false
 	)
 	group "" (
-		radiobuttons textype "Image Type:" labels:#("tga", "bmp","png") columns:3 default:3
-		radiobuttons mattype "MATERIAL AS:" align:#left labels:#("GTAmaterial", "Standart") columns:1 offset:[15,5]
+		radiobuttons textype "Image Type:" labels:#("tga", "bmp","png") columns:3 default:3 tooltip:"Texture file extension to search for when loading materials"
+		radiobuttons mattype "MATERIAL AS:" align:#left labels:#("GTA Material", "Standard") columns:1 offset:[15,5] tooltip:"GTA Material (supports 2dfx effects) or Standard (Max native)"
+	)
+	
+	-- Load saved settings on rollout open
+	on DFFinPara open do (
+		local settings = LoadImportSettings()
+		mattype.state = settings[1]
+		textype.state = settings[2]
+	)
+	
+	-- Save settings when changed
+	on mattype changed state do (
+		SaveImportSettings mattype.state textype.state
+	)
+	
+	on textype changed state do (
+		SaveImportSettings mattype.state textype.state
+	)
+	
+	group "" (
 		--spinner ISc "Import Scale: " fieldwidth:42 range:[0,100,SPscale] align:#right
-		button imp "Import DFF" width:120 height:30 align:#center
+		button imp "Import DFF" width:120 height:30 align:#center tooltip:"Import world object DFF (redirects characters to Character IO)"
 		label lmasimp "Mass import is supported !"
 	)
 	
@@ -409,21 +458,17 @@ local no_clump = #()
 			cntLDffNow = 0
 			cntLDffMax = 0
 			
-			-- Detect character model vs world object
-			local isCharacter = hasSkinData gfname
-			
-			if isCharacter then (
-				format "Detected character model (has Skin PLG), using DFFin...\n"
-				DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile gfname)
-			) else (
-				format "Detected world object, using DFFin...\n"
-				DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile gfname)
-			)
-			
+		-- Detect character model and redirect to Character IO
+		local isCharacter = hasSkinData gfname
+		
+		if isCharacter then (
 			fclose f
-			gc()
-		) else (
-			format "ERROR\n"
+			messageBox "Character model detected (Skin PLG found)!\n\nThis tool is for world objects and vehicles only.\n\nPlease use Character IO for character models.\nIt provides proper skinning, animation controls, and seamless export." title:"Use Character IO"
+			return undefined
+		)
+		
+		format "Importing world object...\n"
+		DFFin f 1.0 mattype.state texEx dummysize false aboutRoll.sdtl.checked (getFilenameFile gfname)
 		)
 	)--end on useclump
     
@@ -476,7 +521,7 @@ local no_clump = #()
 									format "** Character model detected (Skin PLG found) **\nImporting with Skin modifier and minimal options.\nFor full character import options, use Character IO tool.\n\n"
 								)
 								
-							DFFin f 1.0 mattype.state texEx dummysize hasSkin aboutRoll.sdtl.checked (getFilenameFile fname[i])
+							DFFin f 1.0 mattype.state texEx dummysize false aboutRoll.sdtl.checked (getFilenameFile fname[i])
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (
@@ -517,10 +562,10 @@ local no_clump = #()
 							
 							if isCharacter then (
 								format "Detected character model (has Skin PLG), using DFFin...\n"
-								DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname)
+								DFFin f 1.0 mattype.state texEx dummysize true aboutRoll.sdtl.checked (getFilenameFile fname)
 							) else (
 								format "Detected world object, using DFFin...\n"
-								DFFin f 1.0 mattype.state texEx dummysize autoskin.checked aboutRoll.sdtl.checked (getFilenameFile fname)
+								DFFin f 1.0 mattype.state texEx dummysize true aboutRoll.sdtl.checked (getFilenameFile fname)
 							)
 							useclump.enabled = false
 							whichone.enabled = false
@@ -621,41 +666,41 @@ rollout DFFexPara "Export DFF" (
 	label lblSpacer1 "" height:4
 	
 	group "General parameters" (
-		checkbutton eGTA3 "GTA3" width:54 highlightcolor:(color 0 189 0) offset:[-4,0] across:3
-		checkbutton eVC   "VC"   width:54 highlightcolor:(color 0 189 0) offset:[0,0]
-		checkbutton eSA   "SA"   width:54 highlightcolor:(color 0 189 0) offset:[4,0] checked:true
+		checkbutton eGTA3 "GTA3" width:54 highlightcolor:(color 0 189 0) offset:[-4,0] across:3 tooltip:"Export for GTA III (2001)"
+		checkbutton eVC   "VC"   width:54 highlightcolor:(color 0 189 0) offset:[0,0] tooltip:"Export for Vice City (2002)"
+		checkbutton eSA   "SA"   width:54 highlightcolor:(color 0 189 0) offset:[4,0] checked:true tooltip:"Export for San Andreas (2004)"
 		--checkbox MMC "MMC"  align:#left  tooltip:"use Modulate Material Color" checked:true 
-		checkbox AppendFile "Apnd" tooltip:"Append export to DFF"  across:2
-		checkbox lockdff "lock DFF"  tooltip:"ZM Lock" offset:[-7,0]
-		checkbox vAlpha "use Vertex Alpha"  tooltip:"Export Vertex Alpha" checked:false
+		checkbox AppendFile "Apnd" tooltip:"Append to existing DFF file (add objects without replacing)"  across:2
+		checkbox lockdff "lock DFF"  tooltip:"Z-Modeler lock (prevents re-import in some tools)" offset:[-7,0]
+		checkbox vAlpha "use Vertex Alpha"  tooltip:"Export vertex alpha channel (transparency per vertex)" checked:false
 	)
 	
 	group "Vertex Color:" (
-		checkbutton NOR "Normals"  width:48  highlightcolor:(color 0 189 0) tooltip:"export Normals"  across:3 offset:[-4,0]		
-		checkbutton CPV "DAY" width:54  highlightcolor:(color 0 189 0) tooltip:"export Vertex Color" offset:[-4,0] checked:true
-		checkbutton _bNVC "NIGHT" width:54  highlightcolor:(color 0 189 0) tooltip:"export Vertex illum" offset:[2,0] checked:true	
+		checkbutton NOR "Normals"  width:48  highlightcolor:(color 0 189 0) tooltip:"Export vertex normals for smooth shading (increases file size)"  across:3 offset:[-4,0]		
+		checkbutton CPV "DAY" width:54  highlightcolor:(color 0 189 0) tooltip:"Export prelit vertex colors for daytime lighting" offset:[-4,0] checked:true
+		checkbutton _bNVC "NIGHT" width:54  highlightcolor:(color 0 189 0) tooltip:"Export night vertex colors (SA only, mutually exclusive with Normals)" offset:[2,0] checked:true	
 		label textPrelit "Default:" align:#left  across:3 
-		spinner VCdef "VC" type:#integer range:[0,255,80]  fieldwidth:30  offset:[-8,0]
-		spinner NVCdef "NVC" type:#integer range:[0,255,10] align:#right fieldwidth:30 offset:[5,0]
+		spinner VCdef "VC" type:#integer range:[0,255,80]  fieldwidth:30  offset:[-8,0] tooltip:"Default day color brightness (0-255) if not painted"
+		spinner NVCdef "NVC" type:#integer range:[0,255,10] align:#right fieldwidth:30 offset:[5,0] tooltip:"Default night color brightness (0-255) if not painted"
 	)
 
 		group "SA Collision" (
-			checkbox Vparts "Vehicle Parts" align:#left across:2
-			button colbase "Sel COL" width:65 offset:[0,-4] tooltip:"Select collision file"
+			checkbox Vparts "Vehicle Parts" align:#left across:2 tooltip:"Export separate collision for vehicle components (doors, wheels, etc.)"
+			button colbase "Sel COL" width:65 offset:[0,-4] tooltip:"Select collision file (.col) to embed in DFF"
 		) 
 		group "Export" (
 			
-			checkbox UVpack "UV Fix"  checked:false tooltip:"FIX UV (optional, longer time of export)" across:2 
-			checkbox MeshFix "Mesh Fix"  checked:false align:#left  tooltip:"Fix polygons (optional, longer time of export)" 
-			checkbox noCOL "SKIP COL" checked:true align:#left   tooltip:"Select COL3/COLL" offset:[0,5]
-			button exp "EXPORT TO DFF" width:120 height:40 tooltip:"Only selected objects will export" align:#center
+			checkbox UVpack "UV Fix"  checked:false tooltip:"Fix UV coordinates (optional, slower export)" across:2 
+			checkbox MeshFix "Mesh Fix"  checked:false align:#left  tooltip:"Fix polygon issues (optional, slower export)" 
+			checkbox noCOL "SKIP COL" checked:true align:#left   tooltip:"Skip collision export (faster, for models without collision)" offset:[0,5]
+			button exp "EXPORT TO DFF" width:120 height:40 tooltip:"Export selected objects to DFF file (world objects only)" align:#center
 			label lmasexp "Mass export is supported !"
 		)
 		
 		-- START: IFP UI & handler (moved directly after Export group)
 		group "IFP Animation - Scenery Objects Only" (
-			button IFPexpNew "Export New IFP File" width:150 tooltip:"Export hierarchy/world-object animation as a new .ifp file" align:#center
-			button IFPexpAppend "Append To Existing IFP File" width:150 tooltip:"Append exported animation to an existing .ifp file" align:#center
+			button IFPexpNew "Export New IFP File" width:150 tooltip:"Export hierarchy animation as new IFP file (doors, gates, world objects)" align:#center
+			button IFPexpAppend "Append To Existing IFP File" width:150 tooltip:"Add animation to existing IFP file (multiple animations per file)" align:#center
 			label IFPanimInfo1 "*Scale Timeline To Animation Before Exporting*" align:#center
 		)
 
@@ -702,7 +747,7 @@ rollout DFFexPara "Export DFF" (
 		progressbar pb color:blue width:178 height:6 offset:[-8,0]
 		
 		group "Other Tools" (
-			button bModelInfo "Model chanell Info >"  tooltip:"Channel information of the selected model"
+			button bModelInfo "Model chanell Info >"  tooltip:"Show UV channels, vertex colors, and mesh statistics for selected object"
 		)		
 		
 		on noCOL changed state do (
@@ -1379,41 +1424,42 @@ rollout UVAnimCreator "UV Animation" width:250 (
 	label UVanimInfo3 "~" align:#center
 	
 	group "Material Setup" (
-		materialButton matPick "Pick Material" width:220 height:40 tooltip:"Select material to animate"
+		materialButton matPick "Pick Material" width:220 height:40 tooltip:"Select material with texture to animate (Standard or GTA Material)"
 		label matInfo "" align:#center
 	)
 	
 	group "Sprite Sheet Grid" (
-		spinner gridU "Columns (U):" width:150 range:[1,100,4] type:#integer align:#right
-		spinner gridV "Rows (V):" width:150 range:[1,100,4] type:#integer align:#right
+		spinner gridU "Columns (U):" width:150 range:[1,100,4] type:#integer align:#right tooltip:"Number of frames across texture width (left to right)"
+		spinner gridV "Rows (V):" width:150 range:[1,100,4] type:#integer align:#right tooltip:"Number of frames down texture height (top to bottom)"
 		label gridInfo "Total frames: 16" align:#center
 	)
 	
 	group "Animation Sequence" (
-		radioButtons seqType labels:#("All Frames", "Frame Range", "Custom") default:1
+		radioButtons seqType labels:#("All Frames", "Frame Range", "Custom") default:1 tooltip:"All Frames=entire sheet • Frame Range=specify start/end • Custom=choose specific frames"
 		
 		-- Frame range controls
-		spinner startFrame "Start Frame:" width:150 range:[1,100,1] type:#integer align:#right enabled:false
-		spinner endFrame "End Frame:" width:150 range:[1,100,16] type:#integer align:#right enabled:false
+		spinner startFrame "Start Frame:" width:150 range:[1,100,1] type:#integer align:#right enabled:false tooltip:"First frame to play (Frame 1=top-left corner)"
+		spinner endFrame "End Frame:" width:150 range:[1,100,16] type:#integer align:#right enabled:false tooltip:"Last frame to play (counts left→right, top→bottom)"
 		
 		-- Custom sequence
-		edittext customSeq "" height:40 enabled:false text:"1,2,3,4,5,6,7,8" fieldWidth:220
+		edittext customSeq "" height:40 enabled:false text:"1,2,3,4,5,6,7,8" align:#center tooltip:"Custom order: ranges (1..8) or individual frames (1,3,5)"
+		button btnSeqHelp "Sequence Help (?)" width:120 height:20 enabled:false tooltip:"Show custom sequence syntax and examples" align:#center
 		label customHelp "Format: 1,2,3 or 1..8 or 1..4,8..12" align:#left enabled:false
 	)
 	
 	group "Timing" (
-		spinner animDuration "Duration (seconds):" width:150 range:[0.1,60.0,2.0] type:#float align:#right
-		spinner animFPS "Playback FPS:" width:150 range:[1,60,15] type:#float align:#right
+		spinner animDuration "Duration (seconds):" width:150 range:[0.1,60.0,2.0] type:#float align:#right tooltip:"Total animation length in seconds (one complete loop)"
+		spinner animFPS "Playback FPS:" width:150 range:[1,60,15] type:#float align:#right tooltip:"Frames per second (15=smooth, lower=choppier)"
 		label fpsInfo "Game default: 15 FPS" align:#center
 	)
 	
 	group "Preview" (
-		spinner previewFrame "Preview Frame:" width:150 range:[1,16,1] type:#integer align:#right
-		button btnPreview "Show Frame on Material" width:220 height:25
+		spinner previewFrame "Preview Frame:" width:150 range:[1,16,1] type:#integer align:#right tooltip:"Frame number to preview on material (see in viewport)"
+		button btnPreview "Show Frame on Material" width:220 height:25 tooltip:"Display selected frame in viewport (preview only, no animation)"
 	)
 	
-	button btnCreate "Create Animation" width:220 height:35 enabled:false
-	button btnClear "Clear Animation Keys" width:220 height:25 enabled:false
+	button btnCreate "Create Animation" width:220 height:35 enabled:false tooltip:"Generate UV animation keyframes (exports automatically in DFF)"
+	button btnClear "Clear Animation Keys" width:220 height:25 enabled:false tooltip:"Remove all animation keys from this material"
 	
 	-- Update grid info when spinners change
 	on gridU changed val do (
@@ -1438,20 +1484,61 @@ rollout UVAnimCreator "UV Animation" width:250 (
 				endFrame.enabled = false
 				customSeq.enabled = false
 				customHelp.enabled = false
+				btnSeqHelp.enabled = false
 			)
 			2: ( -- Frame Range
 				startFrame.enabled = true
 				endFrame.enabled = true
 				customSeq.enabled = false
 				customHelp.enabled = false
+				btnSeqHelp.enabled = false
 			)
 			3: ( -- Custom
 				startFrame.enabled = false
 				endFrame.enabled = false
 				customSeq.enabled = true
 				customHelp.enabled = true
+				btnSeqHelp.enabled = true
 			)
 		)
+	)
+	
+	-- Custom sequence help
+	on btnSeqHelp pressed do (
+		local helpText = ""
+		helpText += "CUSTOM SEQUENCE SYNTAX\n"
+		helpText += "================================\n\n"
+		helpText += "HOW FRAMES ARE NUMBERED:\n"
+		helpText += "Frames count left→right, top→bottom\n"
+		helpText += "Example 4×4 grid:\n"
+		helpText += "  1  2  3  4\n"
+		helpText += "  5  6  7  8\n"
+		helpText += "  9 10 11 12\n"
+		helpText += " 13 14 15 16\n\n"
+		helpText += "SYNTAX OPTIONS:\n"
+		helpText += "- Individual frames: 1,3,5,7\n"
+		helpText += "- Ranges: 1..8  (frames 1 through 8)\n"
+		helpText += "- Mixed: 1..4,8,12..16\n"
+		helpText += "- Backwards: 8..1  (reverse order)\n"
+		helpText += "- Repeats: 1,1,2,2,3,3  (hold frames)\n\n"
+		helpText += "TIMING:\n"
+		helpText += "- ALL frames play at EQUAL speed\n"
+		helpText += "- Duration divides evenly across frames\n"
+		helpText += "- Example: 2 seconds ÷ 8 frames = 0.25s each\n"
+		helpText += "- To slow specific frames, repeat them:\n"
+		helpText += "  '1,2,2,3,3,4' (frames 2 and 3 play twice as long)\n\n"
+		helpText += "EXAMPLES:\n"
+		helpText += "- Forward loop: 1..16\n"
+		helpText += "- Reverse loop: 16..1\n"
+		helpText += "- Ping-pong: 1..8,8..1\n"
+		helpText += "- Skip frames: 1,3,5,7,9,11,13,15\n"
+		helpText += "- Complex: 1..4,10,10,12..16,1\n\n"
+		helpText += "LIMITATIONS:\n"
+		helpText += "- Cannot change speed per frame\n"
+		helpText += "- All frames same duration\n"
+		helpText += "- Use repeats for variable timing"
+		
+		messageBox helpText title:"Custom Sequence Help" beep:false
 	)
 	
 	-- Material picker
@@ -1480,7 +1567,7 @@ rollout UVAnimCreator "UV Animation" width:250 (
 		
 		currentMaterial = mtl
 		currentBitmap = bmap
-		matInfo.text = "? " + mtl.name
+		matInfo.text = "Material: " + mtl.name
 		btnCreate.enabled = true
 		btnClear.enabled = true
 		
@@ -1493,8 +1580,8 @@ rollout UVAnimCreator "UV Animation" width:250 (
 	
 	-- Calculate frame offset in sprite sheet
 	fn getFrameOffset frame uCount vCount = (
-		local u = -((mod (frame - 1) uCount) as float / uCount as float)
-		local v = -(floor ((frame - 1) / uCount) as float / vCount as float)
+		local u = -(((mod (frame - 1) uCount) as float) / (uCount as float))
+		local v = -(((floor ((frame - 1) / uCount)) as float) / (vCount as float))
 		#(u, v)
 	)
 	
@@ -1506,8 +1593,7 @@ rollout UVAnimCreator "UV Animation" width:250 (
 		)
 		
 		local offset = getFrameOffset previewFrame.value gridU.value gridV.value
-		currentBitmap.coords.u_tiling = 1.0 / gridU.value
-		currentBitmap.coords.v_tiling = 1.0 / gridV.value
+		-- Don't modify tiling - only change offset to scroll texture
 		currentBitmap.coords.u_offset = offset[1]
 		currentBitmap.coords.v_offset = offset[2]
 		completeRedraw()
@@ -1565,50 +1651,47 @@ rollout UVAnimCreator "UV Animation" width:250 (
 			return false
 		)
 		
-		-- Calculate timing
-		local maxTime = (animDuration.value * 4800.0) as time  -- Convert seconds to ticks
-		local frameTime = maxTime / frames.count as float
+		-- Clear existing keys first
+		deleteKeys currentBitmap.coords.u_offset.controller
+		deleteKeys currentBitmap.coords.v_offset.controller
 		
-		-- Set tiling (constant throughout animation)
-		animate on (
-			at time 0t (
-				currentBitmap.coords.u_tiling = 1.0 / gridU.value
-				currentBitmap.coords.v_tiling = 1.0 / gridV.value
-			)
-		)
+		-- Convert to Bezier controllers (supports stepped tangents)
+		currentBitmap.coords.u_offset.controller = bezier_float()
+		currentBitmap.coords.v_offset.controller = bezier_float()
 		
-		-- Create keyframes for each frame
-		local curTime = 0t
+		-- DO NOT modify tiling - it should already be set correctly in the material
+		-- The UVs are static, only the texture offset animates
+		
+		-- Create keyframes - one sprite per frame
 		for i = 1 to frames.count do (
 			local offset = getFrameOffset frames[i] gridU.value gridV.value
+			local frameIndex = (i - 1)  -- 0-based frame index
 			
 			animate on (
-				at time curTime (
-					currentBitmap.coords.u_offset = offset[1]
-					currentBitmap.coords.v_offset = offset[2]
-				)
-				-- Hold frame until next keyframe
-				at time (curTime + frameTime - 1t) (
+				at time (frameIndex * 1f) (
 					currentBitmap.coords.u_offset = offset[1]
 					currentBitmap.coords.v_offset = offset[2]
 				)
 			)
-			curTime += frameTime
 		)
 		
-		-- Loop: set final frame back to first frame
-		local firstOffset = getFrameOffset frames[1] gridU.value gridV.value
-		animate on (
-			at time curTime (
-				currentBitmap.coords.u_offset = firstOffset[1]
-				currentBitmap.coords.v_offset = firstOffset[2]
-			)
+		-- Force stepped tangents (no interpolation between sprites)
+		for key in currentBitmap.coords.u_offset.controller.keys do (
+			key.inTangentType = #step
+			key.outTangentType = #step
+		)
+		for key in currentBitmap.coords.v_offset.controller.keys do (
+			key.inTangentType = #step
+			key.outTangentType = #step
 		)
 		
-		-- Update animation range
-		animationRange = (interval 0t curTime)
+		-- Set animation range to match frame count
+		animationRange = interval 0f ((frames.count - 1) * 1f)
 		
-		messageBox ("UV animation created!\n\n" + frames.count as string + " frames over " + animDuration.value as string + " seconds\nAnimation range: " + ((curTime as float) / 4800.0) as string + "s") title:"Success"
+		-- Calculate actual playback duration
+		local duration = frames.count / animFPS.value
+		
+		messageBox ("UV animation created!\n\n" + frames.count as string + " frames (0-" + (frames.count - 1) as string + ")\nPlayback: " + animFPS.value as string + " fps = " + duration as string + " seconds\n\nSet Max framerate to " + animFPS.value as string + " fps for correct preview\n\nNote: Duration spinner ignored in frame-based mode") title:"Success" beep:false
 	)
 	
 	-- Clear animation keys
