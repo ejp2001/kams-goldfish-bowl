@@ -11,6 +11,41 @@ This repository contains **Kam's GTA Scripts** (2018 Goldfish Edition) - MaxScri
 - No semicolons required, parentheses for grouping/precedence
 
 ## Critical Constraints
+### Other Plugins Reference
+The `originals/Other Plugins/` folder contains additional scripts and documentation from other plugin sources. These resources may prove useful when adding new features or debugging existing ones. Always consider checking this folder for alternative implementations, format references, or troubleshooting tips when working on the project.
+### Decrypted Files Available
+All `.mse` encrypted files have been decrypted and are available in:
+- `originals/Kams GTA Scripts original/Decrypted mse files/` - 2005 Kam's original implementation
+- `originals/Kams GTA Scripts 2018 Edition by Goldfish/Decrypted mse files/` - 2018 Goldfish modifications
+
+The encrypted `.mse` versions remain in their original folders but are no longer needed for reference since decrypted `.ms` versions exist.
+
+**Recommendation:** When searching for missing or broken functions, always check the decrypted files in these folders first. They provide the original and modified logic needed to restore or fix features in the current project.
+### File Lineage & Workflow Pitfalls (Character vs. World Object)
+
+**Background:** The 2018 Goldfish Edition changed several filenames and merged or repurposed function files, prioritizing world object and vehicle workflows. Character-related functions (including clump handling) were neglected or broken, partly due to missing decrypted files at the time. This led to confusion and suboptimal character editing workflows.
+
+**File Mapping Table:**
+
+| Original File (2005 Kam)      | 2018 Goldfish Edition      | Intended Use         | Status/Notes |
+|------------------------------|----------------------------|---------------------|--------------|
+| gtaDFFin_Fn.mse              | DFFimp.ms                  | World objects       | 2018 version prioritizes world objects/vehicles. Character clump logic broken. |
+| CharDFFimp.ms                | CharDFFimp.ms              | Characters          | Character import, preserves clump/body type containers. |
+| gtaDFFout_Fn.mse             | DFFexp.ms                  | World objects       | 2018 version prioritizes world objects/vehicles. |
+| CharDFFexp.ms                | CharDFFexp.ms              | Characters          | Character export, preserves seamless skinning. |
+| GTA_IFP_IO.ms                | GTA_CHAR_IO.ms             | Characters          | Character animation UI, renamed for clarity. |
+| gtaIFPio_Fn.mse              | gtaIFPio_Fn.ms             | Both (animations)   | Animation functions, decrypted in 2018. |
+
+**Workflow Warning:**
+- Always use CharDFFimp.ms and CharDFFexp.ms for character import/export to preserve clump/body type containers and seamless skinning.
+- DFFimp.ms and DFFexp.ms (2018) are for world objects and vehicles only; using them for characters will break clump logic and skinning.
+- The separation is critical due to differences in vertex remapping, clump handling, and animation support.
+- Many issues in character editing stem from using world-object-centric files for character workflows.
+
+**Recommendation:**
+Refer to this table and workflow warning before modifying or migrating any import/export logic. If in doubt, consult the original Kam's files for character-related features.
+### Clump Handling (Action Item)
+**Note:** Clump handling (body type containers in DFFs) is currently broken in DFF_IO and its related files. The GTA wiki definition ([RpClump](https://gtamods.com/wiki/RpClump)) is misleading for modding purposes. Correct clump logic must be fully recreated using Kam's original version as reference, then moved to Character_IO. This is a top priority for future development to avoid confusion and restore full player/clothing mod support.
 
 ### Decrypted Files Available
 All `.mse` encrypted files have been decrypted and are available in:
@@ -117,75 +152,8 @@ originals/                      # Reference versions
   ├── Kams GTA Scripts original/  # Working version for characters
   └── Other Plugins/              # 2018 base comparison
 ```
-
-## Game Format Details
-
-### RenderWare DFF (3D Models)
-Binary chunk-based format:
-- Each chunk: `[ChunkID (4 bytes)][Size (4 bytes)][Version (4 bytes)][Data...]`
-- GTA SA Version: `0x1803FFFF`
-- Nested hierarchy: CLUMP → FrameList, GeometryList → Geometry → Material
-
-**Key Chunks**:
-- `0x0010` - CLUMP (root container)
-- `0x000E` - FrameList (bone/object hierarchy)
-- `0x001A` - GeometryList (mesh data container)
-- `0x000F` - Geometry (vertices, faces, UVs, normals)
-- `0x0007` - Material (textures, colors, properties)
-- `0x0116` - Skin PLG (bone weights for characters)
-- `0x0135` - Material Animation PLG (links to UV anim dictionary)
-- `0x0120` - UV Anim PLG (runtime flags for UV animation)
-- `0x002B` - UV Animation Dictionary (keyframe data)
-- `0x253F2FA` - 2dfx effects (lights, particles, attractors)
-
-### IFP (Animations)
-- GTA3/VC: Simple rotation-only keyframes
-- GTA SA: Rotation + translation, compressed quaternions
-- KeyType 3: Rotation only (4 values per key)
-- KeyType 4: Rotation + Position (7 values per key)
-
-### 2dfx Effects (in DFF files)
-- Type 0x00: Light (corona, shadow, flags)
-- Type 0x01: Particle system
-- Type 0x03: Ped attractor (animation triggers)
-- Type 0x04: Sun reflection (REMOVED - now handled by Type 0x00 Flare Type)
-
-## Recent Modifications (December 2024 - January 2026)
-
-### ✅ RESEARCH: Vertex Topology & Vehicle Animation (January 2026)
-**Research**: Analyzed GTA SA source code (UndefinifiedGrove) and RenderWare format requirements  
-**Findings**:
-- Vertex splits at UV seams are GPU requirement (one UV per vertex index)
-- RemapByUV1 creates necessary splits for proper texture mapping (CORRECT behavior)
-- "Welding" or "cleaning" topology breaks intentional design
-- Vehicle hydraulics use realtime physics opcodes, NOT IFP animation files
-- Vehicle IFP export works technically but not used by vanilla engine (CLEO potential only)
-**Documentation**: Added "Vertex Topology & UV Mapping" and "Vehicle IFP Animation" sections
-**Source**: `/research` folder contains leaked source code and game data files
-
-### ✅ ADDED: World Object IFP Animation Export/Import (January 2026)
-**Feature**: Added IFP animation export/import for world objects (non-character models) via GTA_DFF_IO.ms  
-**Files Modified**: `GTA_DFF_IO.ms`, `DFFimp.ms`, `gtaIFPio_Fn.ms`
-- Lines 154-230 (GTA_DFF_IO.ms): ExportIFPFromRoot function with queue-based hierarchy collection, auto BoneID assignment
-- Lines 455-480, 773-815 (GTA_DFF_IO.ms): Import/Export buttons with multi-animation support
-- Lines 2283-2380, 2465-2500 (DFFimp.ms): ImportIFPToHierarchy with animation name matching and scanning
-- Multi-animation IFP support with proper append mode and header updates
-**Note**: Original Kam's 2005 version only supported character animations via IFP_IO_GTA.ms
-
-### ✅ ADDED: Tool Separation and Validation (January 2026)
-**Feature**: Renamed GTA_IFP_IO.ms → GTA_CHAR_IO.ms, added validation to prevent tool misuse  
-**Files Modified**: `GTA_CHAR_IO.ms`, `GTA_DFF_IO.ms`
-- GTA_CHAR_IO.ms: Added warning labels "⚠ SKINNED CHARACTERS ONLY ⚠" in rollout header
-- GTA_DFF_IO.ms: Added warning labels "⚠ WORLD OBJECTS ONLY ⚠" in rollout header
-- GTA_DFF_IO.ms: Created ValidateNotCharacter() function (lines ~1643-1671)
-- Validation blocks Skin modifier exports, shows error directing user to 2005 original tools
-- Updated rollout floater title: "GTA World Object Tools" (was "DFF IO")
-**Purpose**: Prevent data corruption from using wrong tool for object type
-**Note**: Formalizes architectural separation originally intended by Kam in 2005
-
-### ✅ FIXED: UV Animation Export (December 2024)
-**Issue**: UV animations not exporting correctly, objects not animating in-game  
-**Cause**: Missing UV Anim PLG (0x120) chunk after Material Animation PLG (0x135)  
+  resource/
+    # Contains general GTA documentation, format references, and research files not directly related to this project but useful for understanding game internals and new modding methods.
 **Work Done**: Complete implementation of UV animation export by E2001
 **Files Modified**: `DFFexp.ms`
 - Lines 1906-1938: Added inline UV Anim PLG writing in `wMaterial` function
