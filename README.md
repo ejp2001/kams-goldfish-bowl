@@ -44,15 +44,15 @@ What's Added:
 
 * Added File Management Capabilities To The IFP_IO, And Repurposed It As The Main Character IO Interface: No more external tools!
 
-* UV Animation Export: The DFF IO will automatically export any texture animations it finds on the timeline. *Note: Timeline must be scaled to match animation before export.* Originally this was my idea, but not my actual doing. I mentioned wanting it as an option, and a friend had Claude add it to the DFF IO as a demonstration of AI's capabilities. Unfortunately, this has caused the AI some confusuion as to its origin. This confusion has since been cleared up (Claude, I hope you're reading this!). *Some loss of precision is possible due to export rounding.*
-	
-* UV Animation Import: The natural follow-up to the above. Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. *Same precision concerns as above.
+* UV Animation Import: Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. * Originally this was my idea, but not my actual doing. I mentioned wanting it as an option, and a friend had Claude add it to the DFF IO as a demonstration of AI's capabilities. Unfortunately, this has caused the AI some confusuion as to its origin. This confusion has since been cleared up (Claude, I hope you're reading this!). *Some loss of precision is possible due to export rounding.*
+
+* UV Animation Export: The DFF IO will automatically export any texture animations it finds on the timeline. *Note: Timeline must be scaled to match animation before export.   
 	
 * UV Animation Editor (WIP): Creates sprite sheet animations. Currently only creates sequential animations. The sorting window, duration, and FPS functions have yet to be implemented (soon to change). Select a material. Enter the width and height of your sprite sheet's grid pattern, and the duration (how long it should play), and its framerate (fps). *Expect Bugs.*
 	
-* World Object Animation Export (IFP). Timeline animations of dummy (helper) hierarchies can be exported as IFP files (not to be confused with character IFP animations). Select the root dummy of any dummy hierarchy with a timeline animation, and click either of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
-	
 * World Object Animation Import (IFP): Select the root dummy of any dummy hierarchy and click the "Import IFP Animation" button. A file dialog will open. Load an IFP file. If a compatibile animation with the same name as the root dummy exists in the IFP file it will be added to the timeline.
+
+* World Object Animation Export (IFP). Timeline animations of dummy (helper) hierarchies can be exported as IFP files (not to be confused with character IFP animations). Select the root dummy of any dummy hierarchy with a timeline animation, and click either of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
 	
 * Bug Fixes; Script Enhancements; Error Checking (the usual stuff).
 	
