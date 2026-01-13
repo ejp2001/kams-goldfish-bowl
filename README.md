@@ -8,7 +8,7 @@ This is not an attempt to stamp my name on any project, or to say "I could have 
 
 This project makes extensive use of AI models. Most of what exists at present was created with the help of Claude Sonnet 4.5. I couldn't have done it without him! This is certain to prove an endlessly-evolving project guided primarily by AI capability and/or availability, so *expect errors.* I will attempt to address them as best I can.
  
-
+*
 
 This repo contains:
 
@@ -18,6 +18,7 @@ The project itself (scripts folder).
 	
 MODIFICATIONS_SUMMARY.md: AI maintained project record (a proper changelog may appear at some point).
 	
+*
 	
 Installation and usage:
 
@@ -27,7 +28,7 @@ Copy the entire contents of the scripts folder to your "3DS_MAX_INSTALLATION/scr
 	
 Try not to hurt yourself.
 	
-	
+*	
 
 What's fixed:
 
@@ -41,7 +42,7 @@ The Notorious IFP EOF (End Of File) Bug: If you don't know what I'm talking abou
 	
 General Housekeeping: Moved a bunch of stuff around to make room for future enhancements (Character handling already mentioned).
 	
-	
+*	
 
 What's Added:
 
@@ -61,14 +62,16 @@ Bug Fixes; Script Enhancements; Error Checking (the usual stuff).
 	
 Documentation: The ONE THING that THIS, and nearly every GTA plugin for 3DS Max is sorely lacking! Tool Tips, Popups, and Help Dialog wherever needed (there's still much to do and not enough time in the day).
 	
-
+*
 
 What's NOT fixed: 	
 
 My patience for working with AI (*but we're looking into it*).
 	
-
+*
 
 What was intentionally broken:
+
+Character Import via DFF_IO
 
 Compatibility with earlier versions of Kams GTA Scripts.
