@@ -1,4 +1,5 @@
 # kams-goldfish-bowl
+
 This repo is an attempt to explore all possible fixes, improvements, and additions to *Kam's GTA Scripts for 3DS Max: 2005 original version*, *Kam's 2018 Goldfish Edition*, and *any-and-all other available MaxScript resources worth considering*. You will not find links to any of these resources in this repo. Locating them on the Internet is your problem. However; I will refer to any third-party tools whenever I think it appropriate.
 
 My primary focus is on GTA San Andreas compatibility; although, every attempt is being made to preserve whatever GTAIII and Vice City functionality exists. I do not guarantee their continued functionality, as I have moved on from modding them (not that I ever really did).
@@ -7,6 +8,7 @@ This is not an attempt to stamp my name on any project, or to say "I could have 
 
 This project makes extensive use of AI models. Most of what exists at present was created with the help of Claude Sonnet 4.5. I couldn't have done it without him! This is certain to prove an endlessly-evolving project guided primarily by AI capability and/or availability, so *expect errors.* I will attempt to address them as best I can.
  
+
 
 This repo contains:
 
@@ -26,6 +28,7 @@ Copy the entire contents of the scripts folder to your "3DS_MAX_INSTALLATION/scr
 Try not to hurt yourself.
 	
 	
+
 What's fixed:
 
 Character Export Producing Visible Seams In Goldfish's 2018 Edition: Restored the original mesh export method for character models only. WHY:
@@ -39,6 +42,7 @@ The Notorious IFP EOF (End Of File) Bug: If you don't know what I'm talking abou
 General Housekeeping: Moved a bunch of stuff around to make room for future enhancements (Character handling already mentioned).
 	
 	
+
 What's Added:
 
 Added File Management Capabilities To The IFP_IO, And Repurposed It As The Main Character IO Interface: No more external tools!
@@ -58,10 +62,12 @@ Bug Fixes; Script Enhancements; Error Checking (the usual stuff).
 Documentation: The ONE THING that THIS, and nearly every GTA plugin for 3DS Max is sorely lacking! Tool Tips, Popups, and Help Dialog wherever needed (there's still much to do and not enough time in the day).
 	
 
+
 What's NOT fixed: 	
 
 My patience for working with AI (*but we're looking into it*).
 	
+
 
 What was intentionally broken:
 
