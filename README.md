@@ -9,7 +9,7 @@ This is not an attempt to stamp my name on any project, or to say "I could have 
 This project makes extensive use of AI models. Most of what exists at present was created with the help of Claude Sonnet 4.5. I couldn't have done it without him! This is certain to prove an endlessly-evolving project guided primarily by AI capability and/or availability, so *expect errors.* I will attempt to address them as best I can.
 
 
-This repo contains:
+## This repo contains:
 
 * A full decrypted and unmodified archive of Kam's original .mse scripts (modding tools folder).
 	
@@ -27,7 +27,7 @@ Installation and usage:
 * Try not to hurt yourself.
 	
 
-What's fixed:
+## What's fixed:
 
 * Character Export Producing Visible Seams In Goldfish's 2018 Edition: Restored the original mesh export method for character models only. WHY:
 		* Character export (skinned models) requires vertex-based remapping (RemapByVT) to preserve vertex welding for smooth skin deformation.
@@ -38,9 +38,9 @@ For practical considerations, I opted to completely remove skinned character han
 * The Notorious IFP EOF (End Of File) Bug: If you don't know what I'm talking about, you're not alone! Even the AI has trouble keeping the facts straight on this one. *To the best of my knowledge* this bug has persisted up to the creation of yelmi's IFP-ANPK-TOOL (co-author: DENISka) - an adaptation of Kam's IFP_IO tool (feel free to correct me if I'm wrong). This bug adds "junk" data to the file whenever animations are edited, resulting in: ghosted animations (still identified internally, but not in header); animations not loading; "random crashes"; eventual file corruption.
 	
 * General Housekeeping: Moved a bunch of stuff around to make room for future enhancements (Character handling already mentioned).
-	
 
-What's Added:
+
+## What's Added:
 
 * Added File Management Capabilities To The IFP_IO, And Repurposed It As The Main Character IO Interface: No more external tools!
 
@@ -59,13 +59,16 @@ What's Added:
 * Documentation: The ONE THING that THIS, and nearly every GTA plugin for 3DS Max is sorely lacking! Tool Tips, Popups, and Help Dialog wherever needed (there's still much to do and not enough time in the day).
 
 
-What's NOT fixed: 	
+## What's NOT fixed: 
 
-* My patience for working with AI (*but we're looking into it*).
+* Clumps: **Recent discovery:** The GTA wiki ([RpClump](https://gtamods.com/wiki/RpClump)) definition is misleading for practical modding. My original intuition was correct: clump handling (the section managing body type containers in DFFs) belongs in the Character_IO, not DFF_IO. The wiki describes clumps as *"a Struct, a Frame List, a Geometry List, a number of Atomics, optionally a number of Structs and Lights and a number of Structs and Cameras"*, but this does not reflect how clumps are actually used for character body types (Normal, Fat, Ripped) in GTA. 
 
+**Action item:** Refactor clump logic out of DFF_IO and into Character_IO. This is now a priority for future development.
 
-What was intentionally broken:
+*This feature remains broken in the Kams 2018 edition, which may explain the lack of full player/clothing mods. Restoring correct clump handling is now a top priority.*
 
-* Character Import/Export via DFF_IO
+## What was intentionally removed:
+
+* Character Import/Export via DFF_IO.
 
 * Compatibility with earlier versions of Kams GTA Scripts.
