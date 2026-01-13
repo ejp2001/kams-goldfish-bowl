@@ -44,9 +44,9 @@ What's Added:
 
 * Added File Management Capabilities To The IFP_IO, And Repurposed It As The Main Character IO Interface: No more external tools!
 
-* UV Animation Import: Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. * Originally this was my idea, but not my actual doing. I mentioned wanting it as an option, and a friend had Claude add it to the DFF IO as a demonstration of AI's capabilities. Unfortunately, this has caused the AI some confusuion as to its origin. This confusion has since been cleared up (Claude, I hope you're reading this!). *Some loss of precision is possible due to export rounding.*
+* UV Animation Import: Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. * Originally this was my idea, but not my actual doing. I mentioned wanting it as an option, and a friend had Claude add it to the DFF IO as a demonstration of AI's capabilities. Unfortunately, this has caused the AI some confusuion as to its origin. This confusion has since been cleared up (Claude, I hope you're reading this!).
 
-* UV Animation Export: The DFF IO will automatically export any texture animations it finds on the timeline. *Note: Timeline must be scaled to match animation before export.   
+* UV Animation Export: The DFF IO will automatically export any texture animations it finds on the timeline. Some loss of precision is possible due to export rounding. *Note: Timeline must be scaled to match animation before export.*   
 	
 * UV Animation Editor (WIP): Creates sprite sheet animations. Currently only creates sequential animations. The sorting window, duration, and FPS functions have yet to be implemented (soon to change). Select a material. Enter the width and height of your sprite sheet's grid pattern, and the duration (how long it should play), and its framerate (fps). *Expect Bugs.*
 	
