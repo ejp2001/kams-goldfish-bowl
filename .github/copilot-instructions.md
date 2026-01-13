@@ -11,6 +11,19 @@ This repository contains **Kam's GTA Scripts** (2018 Goldfish Edition) - MaxScri
 - No semicolons required, parentheses for grouping/precedence
 
 ## Critical Constraints
+### Import Error: "wanted: 7 got: 8"
+**Issue:** The error message "wanted: 7 got: 8" occurs when attempting to use the 2018 logic (DFF_IO) to import skinned characters with the original Kam's DFF_IO. This is caused by a mismatch between the expected vertex mapping (vertex-based, as required for skinned meshes) and the UV-based mapping used in the 2018 world object logic.
+
+**Root Cause:**
+- The 2018 Goldfish Edition prioritizes UV-based remapping (RemapByUV1), which splits vertices at UV seams for correct texture mapping. This results in a different vertex count/order than the original vertex-based method (RemapByVT) used for skinned characters.
+- When the importer expects 7 values (vertex-based) but receives 8 (UV-based), the error "wanted: 7 got: 8" is triggered.
+
+**Solution:**
+- Always use the original character import/export logic (CharDFFimp.ms and CharDFFexp.ms) for skinned characters. The Character_IO interface was created to enforce this separation and avoid this error.
+- Do not use DFFimp.ms or DFFexp.ms (2018) for characters, as they are designed for world objects and vehicles only.
+
+**Summary:**
+This error is a direct result of the UV vs Vertex mapping discrepancy between the two IO methods. Maintaining separate Character_IO and DFF_IO interfaces is required to prevent this and similar issues.
 ### Other Plugins Reference
 The `originals/Other Plugins/` folder contains additional scripts and documentation from other plugin sources. These resources may prove useful when adding new features or debugging existing ones. Always consider checking this folder for alternative implementations, format references, or troubleshooting tips when working on the project.
 ### Decrypted Files Available
