@@ -63,9 +63,10 @@ For practical considerations, I opted to completely remove skinned character han
 
 * Clumps: **Recent discovery:** The GTA wiki ([RpClump](https://gtamods.com/wiki/RpClump)) definition is misleading for practical modding. My original intuition was correct: clump handling (the section managing body type containers in DFFs) belongs in the Character_IO, not DFF_IO. The wiki describes clumps as *"a Struct, a Frame List, a Geometry List, a number of Atomics, optionally a number of Structs and Lights and a number of Structs and Cameras"*, but this does not reflect how clumps are actually used for character body types (Normal, Fat, Ripped) in GTA. 
 
-**Action item:** Refactor clump logic out of DFF_IO and into Character_IO. This is now a priority for future development.
 
-*This feature remains broken in the Kams 2018 edition, which may explain the lack of full player/clothing mods. Restoring correct clump handling is now a top priority.*
+**Action item:** Clump handling is currently broken in DFF_IO and its related files. The function will need to be fully recreated using Kam's original version as reference, then moved to Character_IO. This is now a priority for future development.
+
+*Note: The broken clump logic in the 2018 edition (and related files) may explain the lack of full player/clothing mods. Restoring correct clump handling from Kam's original is now a top priority to avoid future confusion.*
 
 ## What was intentionally removed:
 

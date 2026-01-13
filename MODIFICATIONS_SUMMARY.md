@@ -16,19 +16,13 @@ This document tracks all modifications and enhancements to the GTA modding tools
 - 🔹 **2026 Enhancements** - Architectural improvements, validation, unified workflow
 
 ### Files Analyzed
-- ✅ **DFFexp.ms** - 834 differences (Major enhancements)
-- ✅ **DFFimp.ms** - 1200+ differences (Major enhancements)  
-- ✅ **GTA_DFF_IO.ms** - 290+ differences (Major additions - IFP export/import UI)
-- ✅ **ui_2dfx.ms** - 126 differences (UI cleanup)
-- ✅ **gtaIFPio_Fn.ms** - Decrypted from .mse, skip position keys fix added
-- ✅ **IFP_IO_GTA.ms** - Added (not in original)
-- ✅ **IFP_IO_GTASA.ms** - Added (not in original)
-- ✅ **All .mse files decrypted** - gtaIFPio_Fn.mse, CharDFFimp.mse, gtaDFFout_Fn.mse, GTA_COL_IO.mse
 
 ---
 
 ## DFFexp.ms (834 differences)
+### ❌ CLUMPS: Broken in DFF_IO (Action Item)
 
+Clump handling (body type containers in DFFs) is currently broken in DFF_IO and its related files. The GTA wiki definition ([RpClump](https://gtamods.com/wiki/RpClump)) is misleading for modding purposes. Correct clump logic must be fully recreated using Kam's original version as reference, then moved to Character_IO. This is now a top priority for future development to avoid confusion and restore full player/clothing mod support.
 ### Major Additions
 
 #### 1. Complete UV Animation Export System (~652 lines added)
