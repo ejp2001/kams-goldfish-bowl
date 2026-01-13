@@ -40,34 +40,14 @@ This document tracks all modifications and enhancements to the GTA modding tools
 - Writes Material Animation PLG (0x0135) linking materials to animations
 - Writes UV Anim PLG (0x0120) with runtime flags for game engine
 - Sets atomic `hasRef` flags for objects with UV animations
-
-**Key Functions Added**:
-- `HasUVAnimation(mtl)` - Detects if material has UV animation
-- `GetBitmapFromMaterial(mtl)` - Extracts bitmap with animation data
-- `GetUVAnimationKeys(bmp)` - Extracts keyframe data from bitmap controller
 - `wUVAnimationDictionary(f, allObjects, ver)` - Writes dictionary chunk
 - Inline UV Anim PLG writing in `wMaterial()` function
-
-**Bug Fixes**:
-- Fixed missing UV Anim PLG (0x120) that prevented in-game animations
-- Fixed case sensitivity issue with `colorMap` property (was `colormap`)
-- Proper 48-byte Material Animation PLG structure
 - Correct 12-byte UV Anim PLG structure with flags (5, 5, 0)
 
-#### 2. Enhanced Export Architecture
-- Dictionary writing before CLUMP structure (required for proper chunk ordering)
-- Atomic reference flag system for UV animated objects
-- Debug output for UV animation detection and export
 
 ### Code Quality Improvements
-- Better error handling with try-catch blocks
-- More descriptive debug messages
-- Format string improvements for log output
 
 ---
-
-## DFFimp.ms (1200+ differences)
-
 ### Major Additions (January 2026)
 
 #### 1. Multi-Animation IFP Import with Name Matching (~80 lines modified)
@@ -77,11 +57,6 @@ This document tracks all modifications and enhancements to the GTA modding tools
 - Enhanced `ImportIFPToHierarchy` to support multi-animation IFP files
 - Matches animation by name instead of always importing first animation
 - Scans through all animations to find correct one
-
-**Previous Behavior**:
-- Only imported first animation in file
-- Showed warning "File contains X animations, importing first"
-- No way to import other animations
 
 **New Behavior**:
 - Accepts `animName` parameter (defaults to root object name)
@@ -261,33 +236,15 @@ This document tracks all modifications and enhancements to the GTA modding tools
 - Validation of file paths before operations
 
 #### UI Polish
-- Tooltip additions for unclear controls
-- Better progress bar updates
-- More informative status messages
-
-#### Code Formatting
 - Consistent indentation
 - Comment improvements
-- Removed debug `format` statements that were left in original
-
-#### Function Refinements
-- Parameter validation
-- Return value checking
 - Null pointer guards
-
----
-
-## gtaIFPio_Fn.ms (Decrypted from .mse)
 
 **Status**: All .mse files have been decrypted to .ms for editability
 - gtaIFPio_Fn.mse → gtaIFPio_Fn.ms
 - CharDFFimp.mse → CharDFFimp.ms  
 - gtaDFFout_Fn.mse → gtaDFFout_Fn.ms
 - GTA_COL_IO.mse → GTA_COL_IO.ms
-
-### Major Fix: Skip Position Keys (December 2024)
-
-**Issue**: "Skip Position keys" checkbox didn't work reliably  
 **Root Cause**: Created position keys then tried to delete them post-facto (unreliable)
 
 **Solution** (Lines 280-320):
