@@ -35,7 +35,7 @@ What's fixed:
 		
 For practical considerations, I opted to completely remove skinned character handling from the GTA_DFF_IO.ms. This has the affect of rendering GTA_DFF_IO.ms no longer useful for importing characters with skin modifiers; although you are still able to I/O the models themselves. Automatic handling of character vs. world object formats is planned for future releases.
 	
-* The Notorious IFP EOF (End Of File) Bug: If you don't know what I'm talking about, you're not alone! Even the AI has trouble keeping the facts straight on this one. *To the best of my knowledge* this bug has persisted up to the creation of yelmi's IFP-ANPK-TOOL (co-author: DENISka) - an adaptation of Kam's IFP_IO tool (feel free to correct me if I'm wrong). This bug adds "junk" data to the file whenever animations are edited, resulting in: conflicting animations; animations not loading; "random crashes"; eventual file corruption.
+* The Notorious IFP EOF (End Of File) Bug: If you don't know what I'm talking about, you're not alone! Even the AI has trouble keeping the facts straight on this one. *To the best of my knowledge* this bug has persisted up to the creation of yelmi's IFP-ANPK-TOOL (co-author: DENISka) - an adaptation of Kam's IFP_IO tool (feel free to correct me if I'm wrong). This bug adds "junk" data to the file whenever animations are edited, resulting in: ghosted animations (still identified internally, but not in header); animations not loading; "random crashes"; eventual file corruption.
 	
 * General Housekeeping: Moved a bunch of stuff around to make room for future enhancements (Character handling already mentioned).
 	
@@ -66,6 +66,6 @@ What's NOT fixed:
 
 What was intentionally broken:
 
-* Character Import via DFF_IO
+* Character Import/Export via DFF_IO
 
 * Compatibility with earlier versions of Kams GTA Scripts.
