@@ -62,8 +62,7 @@ What's Added:
 What's NOT fixed: 	
 
 * My patience for working with AI (*but we're looking into it*).
-	
-*
+
 
 What was intentionally broken:
 
