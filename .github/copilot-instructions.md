@@ -3,6 +3,18 @@
 ## Purpose
 This repository is a restoration and modernization project whose primary goal is to recover and preserve the behavior of the original **Kam's GTA Scripts (2005)**. We use the 2018 Goldfish Edition as a technical base where it helps, but this repository is NOT the Goldfish Edition — it is explicitly an effort to restore original 2005 functionality, fix regressions introduced later, and selectively adopt useful improvements.
 
+// ...existing content...
+
+## 3DS Max 2017 Reference
+
+**Note:** Complete offline help files for 3DS Max version 2017 can be found at:
+
+```
+research\3dsmax2017\en_us\
+```
+
+Since 3DS Max 2017 is the main test bed for this project, these help files are a valuable resource for checking available features and avoiding MaxScript errors. Refer to this directory for authoritative documentation when developing or troubleshooting scripts.
+
 Key rules:
 - Treat `scripts/GTA_Tools_2026/` as the active project code (our working copies).
 - All historical sources and references live under `originals/` or `modding resources/` and must be cited by exact path when used to restore behavior.
