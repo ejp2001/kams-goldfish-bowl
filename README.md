@@ -4,7 +4,7 @@ This repo is an attempt to explore all possible fixes, improvements, and additio
 
 My primary focus is on GTA San Andreas compatibility; although, every attempt is being made to preserve whatever GTAIII and Vice City functionality exists. I do not guarantee their continued functionality, as I have moved on from modding them (not that I ever really did).
 
-This is not an attempt to stamp my name on any project, or to say "I could have done it better". I simply want a tool that works with GTA content in the best and most reliable way possible. Everything you see here I offer free of charge and without restriction for anyone interested in doing the same. Anyone with copyright concerns regarding modding tools for a 20+ year old *hacked* video game can KISS MY A..!
+This is not an attempt to stamp my name on any project, or to say "I could have done it better". I simply want a tool that works with GTA content in the best and most reliable way possible. Everything you see here I offer free of charge and without restriction for anyone interested in doing the same.
 
 This project makes extensive use of AI models. Most of what exists at present was created with the help of Claude Sonnet 4.5. I couldn't have done it without him! This is certain to prove an endlessly-evolving project guided primarily by AI capability and/or availability, so *expect errors.* I will attempt to address them as best I can.
 
