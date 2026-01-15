@@ -71,11 +71,6 @@ Both UIs show explicit warning labels and `GTA_DFF_IO.ms` contains runtime valid
 
 ---
 
-If you'd like, I can now:
-- expand the "Quick paths" section to include every specific original file we reference, with clickable repo links; or
-- open a PR with this change and a short summary so reviewers can comment.
-
-Which would you prefer?
 
 ### Integrated Workflow (Updated January 2026)
 **SOLUTION**: GTA_CHAR_IO.ms now loads 2005 CharDFFexp.ms for seamless character export while keeping 2018 enhancements:
