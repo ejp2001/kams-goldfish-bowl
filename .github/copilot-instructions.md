@@ -1,213 +1,93 @@
 # GTA Modding Tools - AI Agent Context
 
-## Project Overview
-This repository contains **Kam's GTA Scripts** (2018 Goldfish Edition) - MaxScript tools for 3ds Max that import/export GTA San Andreas game assets in RenderWare format (DFF models, IFP animations, COL collision, IPL/IDE map data).
+## Purpose
+This repository is a restoration and modernization project whose primary goal is to recover and preserve the behavior of the original **Kam's GTA Scripts (2005)**. We use the 2018 Goldfish Edition as a technical base where it helps, but this repository is NOT the Goldfish Edition — it is explicitly an effort to restore original 2005 functionality, fix regressions introduced later, and selectively adopt useful improvements.
 
-## Language & Environment
-- **MaxScript** - proprietary scripting language for Autodesk 3ds Max
-- Not JavaScript/Python - syntax similarities but different runtime
-- Case-insensitive language with unique array/collection syntax
-- Functions use `fn functionName param1 param2 = ()` syntax
-- No semicolons required, parentheses for grouping/precedence
+Key rules:
+- Treat `scripts/GTA_Tools_2026/` as the active project code (our working copies).
+- All historical sources and references live under `originals/` or `modding resources/` and must be cited by exact path when used to restore behavior.
+- Duplicate filenames are expected across versions; always use full paths in PRs, commits and code comments to avoid ambiguity.
 
-## Critical Constraints
-### Import Error: "wanted: 7 got: 8"
-**Issue:** The error message "wanted: 7 got: 8" occurs when attempting to use the 2018 logic (DFF_IO) to import skinned characters with the original Kam's DFF_IO. This is caused by a mismatch between the expected vertex mapping (vertex-based, as required for skinned meshes) and the UV-based mapping used in the 2018 world object logic.
+## Why this matters (short)
+- The 2005 exporter logic and the 2018 Goldfish logic are different in vertex remapping and clump handling. Using the wrong exporter for skinned characters corrupts skinning and animation data.
+- We keep separate, validated tool flows for characters and world objects to prevent silent corruption.
 
-**Root Cause:**
-- The 2018 Goldfish Edition prioritizes UV-based remapping (RemapByUV1), which splits vertices at UV seams for correct texture mapping. This results in a different vertex count/order than the original vertex-based method (RemapByVT) used for skinned characters.
-- When the importer expects 7 values (vertex-based) but receives 8 (UV-based), the error "wanted: 7 got: 8" is triggered.
+## Files and provenance (how to read this repo)
+1. Active project files (what we edit and ship):
+   - `scripts/GTA_Tools_2026/` — the repository's working tools and UIs.
+2. Authoritative references (do not edit directly):
+   - `modding resources/kams original mse files decrypted/` — Kam's 2005 originals (decrypted `.ms` copies).
+   - `originals/Kams GTA Scripts 2018 Edition by Goldfish/` — Goldfish 2018 reference files.
+   - `originals/Other Plugins/` — third-party helpers and examples.
 
-**Solution:**
-- Always use the original character import/export logic (CharDFFimp.ms and CharDFFexp.ms) for skinned characters. The Character_IO interface was created to enforce this separation and avoid this error.
-- Do not use DFFimp.ms or DFFexp.ms (2018) for characters, as they are designed for world objects and vehicles only.
+When restoring behavior: add a one-line header to the changed file noting the exact originals path used (e.g. "Restored from: modding resources/kams original mse files decrypted/CharDFFexp.ms").
 
-**Summary:**
-This error is a direct result of the UV vs Vertex mapping discrepancy between the two IO methods. Maintaining separate Character_IO and DFF_IO interfaces is required to prevent this and similar issues.
-### Other Plugins Reference
-The `originals/Other Plugins/` folder contains additional scripts and documentation from other plugin sources. These resources may prove useful when adding new features or debugging existing ones. Always consider checking this folder for alternative implementations, format references, or troubleshooting tips when working on the project.
-### Decrypted Files Available
-All `.mse` encrypted files have been decrypted and are available in:
-- `originals/Kams GTA Scripts original/Decrypted mse files/` - 2005 Kam's original implementation
-- `originals/Kams GTA Scripts 2018 Edition by Goldfish/Decrypted mse files/` - 2018 Goldfish modifications
+## Two-tool rule (enforced)
+We enforce a strict separation between skinned-character tools and world-object tools.
 
-The encrypted `.mse` versions remain in their original folders but are no longer needed for reference since decrypted `.ms` versions exist.
+- Character toolset (use for skinned characters only):
+  - File: `scripts/GTA_Tools_2026/GTA_CHAR_IO.ms`
+  - Behavior: Uses or references the original 2005 character exporter logic for seamless skinning and clump handling.
+  - NEVER use for props, vehicles, or non-skinned world objects.
 
-**Recommendation:** When searching for missing or broken functions, always check the decrypted files in these folders first. They provide the original and modified logic needed to restore or fix features in the current project.
-### File Lineage & Workflow Pitfalls (Character vs. World Object)
+- World-object toolset (use for props, vehicles, buildings):
+  - File: `scripts/GTA_Tools_2026/GTA_DFF_IO.ms`
+  - Behavior: 2018-style UV-first remapping and UV animation support; VALIDATES and BLOCKS objects that have a `Skin` modifier.
+  - NEVER use for skinned characters.
 
-**Background:** The 2018 Goldfish Edition changed several filenames and merged or repurposed function files, prioritizing world object and vehicle workflows. Character-related functions (including clump handling) were neglected or broken, partly due to missing decrypted files at the time. This led to confusion and suboptimal character editing workflows.
+Both UIs show explicit warning labels and `GTA_DFF_IO.ms` contains runtime validation (e.g. `ValidateNotCharacter()`) to prevent incorrect exports.
 
-**File Mapping Table:**
+## Practical guidance for contributors
+- When making changes, always state which source you referenced by full path in the commit message and file header.
+- Prefer minimal, well-documented commits that reference `originals/...` when restoring behavior.
+- Do not replace active files in `scripts/GTA_Tools_2026/` with `originals/` files without an explicit restore commit and rationale.
+- For character-related fixes (clump, skin export), consult `modding resources/kams original mse files decrypted/CharDFFexp.ms` first.
 
-| Original File (2005 Kam)      | 2018 Goldfish Edition      | Intended Use         | Status/Notes |
-|------------------------------|----------------------------|---------------------|--------------|
-| gtaDFFin_Fn.mse              | DFFimp.ms                  | World objects       | 2018 version prioritizes world objects/vehicles. Character clump logic broken. |
-| CharDFFimp.ms                | CharDFFimp.ms              | Characters          | Character import, preserves clump/body type containers. |
-| gtaDFFout_Fn.mse             | DFFexp.ms                  | World objects       | 2018 version prioritizes world objects/vehicles. |
-| CharDFFexp.ms                | CharDFFexp.ms              | Characters          | Character export, preserves seamless skinning. |
-| GTA_IFP_IO.ms                | GTA_CHAR_IO.ms             | Characters          | Character animation UI, renamed for clarity. |
-| gtaIFPio_Fn.mse              | gtaIFPio_Fn.ms             | Both (animations)   | Animation functions, decrypted in 2018. |
+## Common pitfalls (short)
+- "Wanted: 7 got: 8" errors are typically caused by mixing vertex-based remapping (2005) and UV-based remapping (2018). Use the appropriate exporter for the job.
+- Welding, auto-centering, or auto-cleaning topology in Max can destroy intentional game topology (vertex splits for UV seams) — do not do this unless you know the consequences.
 
-**Workflow Warning:**
-- Always use CharDFFimp.ms and CharDFFexp.ms for character import/export to preserve clump/body type containers and seamless skinning.
-- DFFimp.ms and DFFexp.ms (2018) are for world objects and vehicles only; using them for characters will break clump logic and skinning.
-- The separation is critical due to differences in vertex remapping, clump handling, and animation support.
-- Many issues in character editing stem from using world-object-centric files for character workflows.
+## Quick paths (examples)
+- Active character exporter reference (2005): modding resources/kams original mse files decrypted/CharDFFexp.ms
+- Active Goldfish-world exporter (project): scripts/GTA_Tools_2026/DFFexp.ms
+- Character UI (project): scripts/GTA_Tools_2026/GTA_CHAR_IO.ms
+- World-object UI (project): scripts/GTA_Tools_2026/GTA_DFF_IO.ms
 
-**Recommendation:**
-Refer to this table and workflow warning before modifying or migrating any import/export logic. If in doubt, consult the original Kam's files for character-related features.
-### Clump Handling (Action Item)
-**Note:** Clump handling (body type containers in DFFs) is currently broken in DFF_IO and its related files. The GTA wiki definition ([RpClump](https://gtamods.com/wiki/RpClump)) is misleading for modding purposes. Correct clump logic must be fully recreated using Kam's original version as reference, then moved to Character_IO. This is a top priority for future development to avoid confusion and restore full player/clothing mod support.
+## If you are restoring behavior
+- Cite the exact `originals/...` or `modding resources/...` file path in the file header and PR description.
+- Add a short changelog entry explaining why the restore was necessary and which in-game behavior it fixes.
 
-### Decrypted Files Available
-All `.mse` encrypted files have been decrypted and are available in:
-- `originals/Kams GTA Scripts original/Decrypted mse files/` - 2005 Kam's original implementation
-- `originals/Kams GTA Scripts 2018 Edition by Goldfish/Decrypted mse files/` - 2018 Goldfish modifications
+---
 
-The encrypted `.mse` versions remain in their original folders but are no longer needed for reference since decrypted `.ms` versions exist.
+If you'd like, I can now:
+- expand the "Quick paths" section to include every specific original file we reference, with clickable repo links; or
+- open a PR with this change and a short summary so reviewers can comment.
 
-### Tool Separation (Updated January 2026)
-**CRITICAL**: The repository now enforces strict separation between character and world object tools to prevent data corruption.
-
-**Two-Tool Architecture:**
-
-1. **GTA_CHAR_IO.ms** (Character Tools - Integrated 2005 Export)
-   - **Purpose**: Skinned character models with Skin modifiers and skeletal animations ONLY
-   - **Location**: `scripts/GTA_Tools_2026/GTA_CHAR_IO.ms` (renamed from GTA_IFP_IO.ms)
-   - **Loads**: 
-     - CharDFFimp.ms (2018 import - works fine)
-     - CharDFFexp.ms (2005 original export - seamless!)
-     - gtaIFPio_Fn.ms (2018 animation functions)
-   - **Use For**: CJ, pedestrians, humanoid characters with bone rigs
-   - **Features**: Character DFF import/export, IFP skeletal animation management, seamless skinned export
-   - **Warning Labels**: "⚠ SKINNED CHARACTERS ONLY ⚠" in UI
-   - **Implementation**: Loads 2005 CharDFFexp.ms from `original mse files decrypted/`
-   - **NEVER**: Use for world objects, props, vehicles, static meshes
-
-2. **GTA_DFF_IO.ms** (World Object Tools - 2026 Edition)
-   - **Purpose**: Static/animated world objects WITHOUT Skin modifiers
-   - **Location**: `scripts/GTA_Tools_2026/GTA_DFF_IO.ms`
-   - **Loads**: DFFimp.ms, DFFexp.ms, gtaIFPio_Fn.ms, ui_2dfx.ms
-   - **Use For**: Doors, gates, props, vehicles, buildings, animated world objects
-   - **Features**: DFF import/export, 2dfx effects, UV animations (fixed 2024), world object IFP export (added 2026)
-   - **Warning Labels**: "⚠ WORLD OBJECTS ONLY ⚠" in UI
-   - **Validation**: ValidateNotCharacter() function blocks Skin modifier exports
-   - **Enhanced Base**: 2018 Goldfish Edition with 2024-2026 improvements
-   - **NEVER**: Use for skinned characters with Skin modifiers
-
-**Why Separation Is Critical:**
-- **2005 Kam's Original**: CharDFFexp.ms uses RemapByVT (vertex-based, preserves welding for smooth skinning)
-- **2018 Goldfish Edition**: DFFexp.ms uses RemapByUV1/UV2 (UV-based, creates vertex splits that break skinning)
-- **Goldfish Added**: detachBySmGr function splits vertices at smoothing groups (incompatible with Skin)
-- **Result**: Using wrong tool creates visible seams on character models or corrupts animation data
-
-**Validation System:**
-```maxscript
--- In GTA_DFF_IO.ms (line ~1643)
-fn ValidateNotCharacter = (
-	for obj in selection do (
-		for i = 1 to obj.modifiers.count do (
-			if classof obj.modifiers[i] == Skin then (
-				-- Show error, block export
-				return false
-			)
-		)
-	)
-	return true
-)
-```
-
-**UI Protection:**
-- Both tools display prominent warning labels at top of rollout
-- GTA_DFF_IO.ms calls ValidateNotCharacter() before SaveDFF and ExportIFP
-- Error messages direct users to correct tool for their object type
-- Validation prevents silent corruption from wrong tool usage
-
-**File Dependencies:**
-```
-GTA_CHAR_IO.ms workflow:
-  └── CharDFFimp.ms (2018 - character import)
-  └── CharDFFexp.ms (2005 original - seamless export)
-  └── gtaIFPio_Fn.ms (2018 - animation functions)
-  └── Path: original mse files decrypted/CharDFFexp.ms
-
-GTA_DFF_IO.ms workflow:
-  └── DFFimp.ms (world object import)
-  └── DFFexp.ms (world object export with UV animations)
-  └── gtaIFPio_Fn.ms (world object animation export)
-  └── ui_2dfx.ms (2dfx effects for lights/particles)
-```
+Which would you prefer?
 
 ### Integrated Workflow (Updated January 2026)
 **SOLUTION**: GTA_CHAR_IO.ms now loads 2005 CharDFFexp.ms for seamless character export while keeping 2018 enhancements:
-- **GTA_CHAR_IO.ms**: Character import (2018) + Character export (2005 seamless) + Animations (2018 enhanced)
-- **GTA_DFF_IO.ms**: World object import/export (2018 with UV animations) + World animations (2018)
+- **GTA_CHAR_IO.ms**: Character import from Kam's Original (2005) + Character export (2005 seamless) + Animation Export
+- **GTA_DFF_IO.ms**: World object import/export (2018) + UV and IFP object animations
 
 **Why Integration Works**: The 2005 CharDFFexp.ms is self-contained and uses `RemapByVT` (vertex-based remapping that preserves welding). It doesn't conflict with 2018 world object code which uses `RemapByUV1/UV2` (UV-based remapping that creates necessary vertex splits for proper UV mapping).
 
 **Result**: Single installation workflow - no need to manually switch between 2005 and 2018 versions. GTA_CHAR_IO.ms automatically uses correct export method for characters.
 
-## File Structure
-```
-scripts/GTA_Tools_2026/          # Main 2018 Goldfish tools
-  ├── DFFexp.ms                 # DFF model export (ACTIVE - MODIFIED)
-  ├── DFFimp.ms                 # DFF model import
-  ├── GTA_DFF_IO.ms            # World object UI (MODIFIED - validation added)
-  ├── GTA_CHAR_IO.ms           # Character UI (RENAMED from GTA_IFP_IO.ms)
-  ├── ui_2dfx.ms               # 2dfx effects UI (MODIFIED)
-  ├── gtaIFPio_Fn.ms           # IFP animation functions (MODIFIED)
-  ├── GTA_Map_IO.ms            # IPL/IDE map import/export
-  ├── CharDFFexp.ms            # OLD character export (not loaded)
-  └── *.mse                    # Encrypted files (READ-ONLY)
 
-originals/                      # Reference versions
-  ├── Kams GTA Scripts original/  # Working version for characters
-  └── Other Plugins/              # 2018 base comparison
-```
-  resource/
-    # Contains general GTA documentation, format references, and research files not directly related to this project but useful for understanding game internals and new modding methods.
-**Work Done**: Complete implementation of UV animation export by E2001
-**Files Modified**: `DFFexp.ms`
-- Lines 1906-1938: Added inline UV Anim PLG writing in `wMaterial` function
-- Lines 2575-2592: UV dictionary writing before CLUMP
-- Lines 2762-2766: Set atomic `hasRef` flags for UV animated objects
-- Lines 94-128: Fixed `colorMap` case sensitivity (GTA_Mtl.colorMap)
-**Validated**: Waterfall model with 481 and 514 key animations working in-game  
-**Note**: UV animation structure may have existed in earlier versions but was incomplete/non-functional. This implementation makes it fully working.
 
-### ✅ FIXED: 2dfx UI Cleanup (December 2024)
-**Files Modified**: `ui_2dfx.ms`
-- Removed redundant Slotmachine button (Type 4 sun reflection)
-- Sun reflection now handled by Light tab's "Flare Type" dropdown
-- Final UI: Three buttons (LIGHT, Particle, Ped Attractor)
+Authoritative references (do not edit directly):
+- `modding resources/kams original mse files decrypted/` — Kam's 2005 originals (decrypted `.ms` copies). Example: `CharDFFexp.ms`.
+- `originals/Kams GTA Scripts original/` — original 2005 repo snapshot (contains `GTA_Tools/`).
+- `originals/Kams GTA Scripts 2018 Edition by Goldfish/` — Goldfish 2018 reference (contains `GTA_Tools(GF)/`, readmes).
+- `originals/Other Plugins/` — assorted plugin folders (examples: `dexx_gta/`, `dff/`, `GTA_Animation_XML_IO/`, etc.).
 
-### ❌ REMOVED: IFP Skip Position Keys Fix (January 2026)
-**Issue**: Attempted to fix "Skip Position keys" checkbox - caused character skeleton collapse and twisting  
-**Files Modified**: `gtaIFPio_Fn.ms` (reverted to original)
-**Attempts Made**:
-1. Removed conditional position key creation/deletion - broke character locomotion
-2. Removed initial `SAbone.pos = [0,0,0]` - skeleton collapsed to origin
-3. Added backup/restore pattern - skeleton twisted incorrectly
-4. Simplified to "just apply keys from file" - skeleton twisted in knots again
+Notes:
+- If a filename appears in both `scripts/GTA_Tools_2026/` and `originals/`, treat `scripts/GTA_Tools_2026/` as the active, authoritative project file.
+- Use full path references in commits and PRs (e.g. `modding resources/kams original mse files decrypted/CharDFFexp.ms`) to avoid ambiguity.
 
-**Conclusion**: Original 2018 Goldfish implementation with `in coordsys parent` block and conditional `deleteKeys` logic is correct and working. **All changes reverted** via git checkout. Position keys are conditionally created/deleted based on KeyType and noPOSkey flag as originally designed.
 
-### ❌ ATTEMPTED: Skinned Character Seam Fix (2018 Goldfish Edition)
-**Issue**: 2018 Goldfish Edition creates visible seams on skinned characters with normals enabled  
-**Root Cause**: 
-- **2018 Goldfish modifications** changed vertex remapping behavior that worked in 2005 original
-- `RemapByUV1` function splits vertices at UV seams (correct for UV mapping)
-- `detachBySmGr` splits vertices at smoothing group boundaries (when normals enabled)
-- Both cause duplicate vertices that break vertex welding needed for smooth skeletal deformation
-- **Original 2005 Kam's implementation does not have this problem** - character exports are seamless
-
-**Attempts Made**:
-1. Skip `detachBySmGr` for Skin modifier objects - seams remained
-2. Force `RemapByVT` (no vertex splitting) for skinned meshes - game crashes due to mismatched skin data
-3. Disable normals export for characters - models look cartoon-like without proper shading
-
-**Conclusion**: 2018 Goldfish vertex remapping changes fundamentally incompatible with skinned mesh requirements. **Original 2005 Kam's implementation handles this correctly** with seamless character exports. The working code can be studied in `originals/Kams GTA Scripts original/Decrypted mse files/` but replicating the exact behavior has proven difficult. **Reverted all changes**, maintaining two-version workflow: **use 2005 original for characters, 2018 Goldfish for world objects and UV animations**.
+**Conclusion**: 2018 Goldfish vertex remapping changes fundamentally incompatible with skinned mesh requirements. **Original 2005 Kam's implementation handles this correctly** with seamless character exports. The working code can be studied in `originals/Kams GTA Scripts original/Decrypted mse files/`, maintaining two-version workflow: **use 2005 original logic for characters, 2018 Goldfish logic for world objects and UV/IFP animations**.
 
 ## Code Architecture
 
@@ -220,11 +100,10 @@ originals/                      # Reference versions
    - Transfer normals if needed
    - Write geometry chunks
 
-2. `wCharDFFout` - Skinned character export
+2. `CharDFFout` - Skinned character export
    - Create skin data (`CreateSkinData`)
    - Call `RemapGeo` with2018 Goldfish version is broken, use original 2005
    - Write geometry with bone weights
-   - **DO NOT MODIFY** - use original Kam's version for characters
 
 3. `RemapGeo` - Vertex/UV remapping dispatcher
    - Compares vertex count vs UV1 count vs UV2 count
@@ -257,9 +136,7 @@ originals/                      # Reference versions
 ### Making Changes
 1. **Read existing code context** - These scripts are 15+ years old with multiple contributors
 2. **Test in-game** - MaxScript errors don't mean game crashes, only in-game testing validates
-3. **Backup before modifying** - User maintains working versions for critical workflows
 4. **Avoid "complete rewrites"** - Incremental targeted fixes only
-5. **Respect encrypted files** - Never attempt to modify .mse files
 
 ### Common Pitfalls
 - **Case sensitivity**: MaxScript is case-insensitive but property names may have preferred casing
@@ -316,48 +193,6 @@ RemapByUV1 (2018 World Objects):
 - Use for: World objects, props, vehicles
 ```
 
-### ⚠️ WARNING: "Clean Topology" Trap
-
-**Common Mistake**: Some tools "fix" models by welding vertices or centering to origin. This often BREAKS intentional design!
-
-**Why "Fixes" Fail:**
-
-**1. Welding Duplicate Vertices**
-```
-Problem: Tool sees multiple vertices at same position
-"Fix": Weld them together (merge to single vertex)
-Result: ❌ Forces them to share ONE UV coordinate
-        ❌ Creates texture seams, stretching, broken materials
-        ❌ What looked "clean" in Max is broken in-game
-```
-
-**Why duplicates exist:**
-- Same 3D position + different UVs = REQUIRED for GPU format
-- Rockstar's exporters did this correctly
-- Welding destroys intentional topology
-
-**2. Aligning to World Origin**
-```
-Problem: Tool sees model offset from [0,0,0]
-"Fix": Center model at origin
-Result: ❌ Breaks hierarchies (chassis → door → handle)
-        ❌ Relative positions destroyed
-        ❌ Vehicle parts no longer align
-```
-
-**Why offsets exist:**
-- Hierarchies depend on relative positions
-- Door at [1.5, 0.5, 0] relative to chassis is INTENTIONAL
-- Centering breaks parent-child transforms
-
-**3. "Cleaning" Smoothing Groups**
-```
-Problem: Tool sees "messy" smoothing group assignments
-"Fix": Recalculate smoothing groups automatically
-Result: ❌ May create hard edges where smooth shading intended
-        ❌ May smooth edges where hard edges needed
-        ❌ Visual appearance changes from original
-```
 
 ### UV Animation & Vertex Splits
 
@@ -402,7 +237,7 @@ Game engine: Reads keyframes → Offsets UVs each frame → Works on any mesh!
 - ✅ Document WHY things work (this file!)
 
 **What We Fix:**
-- ✅ Actual bugs (missing UV Anim PLG chunks)
+- ✅ Actual bugs
 - ✅ Add real features (world object IFP export)
 - ✅ Maintain compatibility (don't break working code)
 
@@ -414,13 +249,6 @@ Game engine: Reads keyframes → Offsets UVs each frame → Works on any mesh!
 **Remember**: "Cleaner" topology in 3ds Max ≠ Correct topology for game engine!
 
 ## Known Issues & Workarounds
-
-### Skinned Character Seams (UNRESOLVED)
-- **Symptom**: Visible gaps at UV seams when character animates
-- **Root Cause**: 2018 Goldfish vertex splitting (RemapByUV1) incompatible with Skin modifier welding requirements
-- **Workaround**: Use original Kam's 2005 version via GTA_CHAR_IO.ms (automatically loads correct exporter)
-- **Why It Works**: 2005 CharDFFexp.ms uses RemapByVT (preserves vertex welding, accepts UV errors)
-- **Future Fix**: Would require skin-aware vertex remapping that updates bone weights after splits
 
 ### UV Animation Requirements
 - Must have Material Animation PLG (0x135) with 48-byte structure
@@ -465,7 +293,7 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
 - ✅ Technically works (exports valid IFP files)
 - ❌ NOT used by vanilla game for vehicles
 - ⚠️ Potential for CLEO modding (custom scripts could load/trigger)
-- 📝 Mark as "EXPERIMENTAL - CLEO SCRIPTING ONLY"
+- 📝 Mark as "EXPERIMENTAL"
 
 **Recommendation**: Keep feature for modding potential, but document that it's not vanilla engine behavior.
 
@@ -473,7 +301,7 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
 - RenderWare Graphics SDK documentation (if available)
 - GTA Modding Wiki: https://gtamods.com
 - Original Kam's forum threads (archived)
-- MaxScript reference: https://help.autodesk.com/view/MAXDEV/2023/ENU/
+- Complete 3DS Max 2017 reference: `research\3dsmax2017\en_us\index.html`
 
 ## Questions to Ask Before Modifying
 1. Does this affect skinned character exports? (Use original version instead)
@@ -492,9 +320,8 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
 ## Contribution History
 - **2005**: Kam's original scripts - Character animations (IFP_IO_GTA.ms), DFF/COL import/export, seamless character export
 - **2018**: Goldfish Edition - Vertex remapping changes (RemapByUV1/UV2, detachBySmGr), general tool enhancements, broke character export
-- **User (E2001)**: Created IFP_IO_GTASA.ms - Improved character animation UI based on IFP_IO_GTA.ms (easier to use, fewer file corruptions)
 - **December 2024 - January 2026 (E2001)**: 
-  - UV animation export implementation (December 2024)
+  - UV animation import/export implementation (December 2024)
   - World object IFP animation export/import (January 2026)
   - Tool separation with validation (Character/Vehicle/Scenery IO)
   - 2dfx UI cleanup

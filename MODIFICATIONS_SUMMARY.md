@@ -11,18 +11,19 @@ This document tracks all modifications and enhancements to the GTA modding tools
 
 ### Source Integrations
 - 🔹 **Kam's Original (2005)** - Seamless character export, core DFF/COL/IFP functionality
-- 🔹 **2018 Goldfish Edition** - UV animations, enhanced tools, world object features
+- 🔹 **2018 Goldfish Edition** - enhanced tools, world object features
 - 🔹 **Community Scripts** - Additional modding utilities and helpers
-- 🔹 **2026 Enhancements** - Architectural improvements, validation, unified workflow
+- 🔹 **2026 Enhancements** - Object IFP and UV Animations, Architectural improvements, validation, unified workflow
 
 ### Files Analyzed
 
 ---
 
-## DFFexp.ms (834 differences)
-### ❌ CLUMPS: Broken in DFF_IO (Action Item)
 
-Clump handling (body type containers in DFFs) is currently broken in DFF_IO and its related files. The GTA wiki definition ([RpClump](https://gtamods.com/wiki/RpClump)) is misleading for modding purposes. Correct clump logic must be fully recreated using Kam's original version as reference, then moved to Character_IO. This is now a top priority for future development to avoid confusion and restore full player/clothing mod support.
+## DFFexp.ms (834 differences)
+❌ CLUMPS: Broken in CharDFF_IO (Action Item)
+
+Clump handling (body type containers in DFFs) is currently broken in CharDFF_IO and its related files. The GTA wiki definition ([RpClump](https://gtamods.com/wiki/RpClump)) is misleading for modding purposes. Correct clump logic must be fully recreated using Kam's original version as reference, then moved to Character_IO. This is now a top priority for future development to avoid confusion and restore full player/clothing mod support.
 ### Major Additions
 
 #### 1. Complete UV Animation Export System (~652 lines added)
@@ -49,7 +50,7 @@ Clump handling (body type containers in DFFs) is currently broken in DFF_IO and 
 
 **What it does**:
 - Enhanced `ImportIFPToHierarchy` to support multi-animation IFP files
-- Matches animation by name instead of always importing first animation
+- Matches animation by name
 - Scans through all animations to find correct one
 
 **New Behavior**:
@@ -59,12 +60,6 @@ Clump handling (body type containers in DFFs) is currently broken in DFF_IO and 
 - Shows helpful error if animation not found
 - Reports animation position (e.g., "Found animation chiliad_lava_crust_3 (3 of 4)")
 
-**Function Signature Change**:
-```maxscript
--- Old: fn ImportIFPToHierarchy rootObj fname skipPosKeys
--- New: fn ImportIFPToHierarchy rootObj fname skipPosKeys animName
-```
-3
 **Technical Details**:
 - Reads animation headers without loading full data
 - Calculates animation size: `DataCount + (36 * BoneCount) + 4`
@@ -182,7 +177,7 @@ Clump handling (body type containers in DFFs) is currently broken in DFF_IO and 
 
 **What it does**:
 - Adds IFP animation import/export buttons directly to main DFF UI
-- No need to use separate IFP_IO_GTA.ms or IFP_IO_GTASA.ms for world object animations
+- No longer need separate utility for world object animations
 - Automatic BoneID assignment for animated objects
 - Multi-animation IFP file support
 
@@ -234,82 +229,24 @@ Clump handling (body type containers in DFFs) is currently broken in DFF_IO and 
 - Comment improvements
 - Null pointer guards
 
-**Status**: All .mse files have been decrypted to .ms for editability
+**Status**: All .mse files have been decrypted to .ms for readability
 - gtaIFPio_Fn.mse → gtaIFPio_Fn.ms
-- CharDFFimp.mse → CharDFFimp.ms  
 - gtaDFFout_Fn.mse → gtaDFFout_Fn.ms
+- CharDFFimp.mse → CharDFFimp.ms
+- CharDFFexp.mse → CharDFFexp.ms  
+- gtaMapIO_Fn.mse → gtaMapIO_Fn.ms
 - GTA_COL_IO.mse → GTA_COL_IO.ms
-**Root Cause**: Created position keys then tried to delete them post-facto (unreliable)
 
-**Solution** (Lines 280-320):
-- Rewrote `ApplyAnim` SA animation handling
-- Removed backup position logic (`bkup = SAbone.pos; SAbone.pos = bkup`)
-- New **preventative** conditional logic
-
-**New Logic Flow**:
-```maxscript
-if noPOSkey == true then (
-    SAbone.pos = [0,0,0]
-    // Apply rotation only
-    deleteKeys SAbone.pos.controller  // Delete immediately in animate block
-) else if KeyType == 4 then (
-    // Apply position with linear tangents
-    SAbone.pos = tlt
-)
-```
-
-**Result**: Keys never created when skip checkbox enabled (100% reliable)
-
-### Export Functions Used by GTA_DFF_IO (January 2026)
-
-**ExpsaIFP(f, AllObjects, AnmName)**:
-- Core SA animation export function
-- Requires BoneID user properties on objects
-- Returns animation data length or undefined if no keys
-- Used by `ExportIFPFromRoot` in GTA_DFF_IO.ms
-
-**Key Requirements**:
-- Objects must have `BoneID` user property >= 0
-- Checks for keyframes on position and rotation controllers
-- Processes rotation keys as compressed quaternions (16-bit * 4)
-- Optional position keys (32-bit * 3) based on key count
-- Time stored as `(frame/framerate * 60)` with rounding
-
----
-
-## IFP_IO_GTA.ms & IFP_IO_GTASA.ms (New files)
-
-These appear to be ** (January 2026)
-✅ **IFP Export (World Objects)** - Creates new IFP files with correct internal names and animation data  
-✅ **IFP Append** - Adds animations to multi-anim IFP files with proper header updates  
-✅ **IFP Import (Multi-Animation)** - Matches animation by root object name, scans all animations  
-✅ **Auto BoneID Assignment** - Only assigns to objects with actual keyframes  
-✅ **Animation Timing** - Correct in-game (minor rounding acceptable)  
 
 ### Validated Changes (December 2024)
 ✅ **UV Animation Export** - Working in-game with complex multi-frame animations  
 ✅ **UV Animation Import** - Successfully imports and optimizes keyframes  
-✅ **2dfx UI** - All three buttons functional, cleaner interface  
-✅ **IFP Skip Position (Character Animations)** - Checkbox working in IFP_IO_GTASA.ms for character imports  
-
-### Requires Testing
-⚠️ **2dfx Import** - Enhanced import for types 1, 3, 4 needs in-game validation  
-⚠️ **Sprite Sheet Import** - Automatic detection and bitmap list creation needs testing with actual sprite-animated models  
-⚠️ **Material Import** - Alpha/opacity map improvements need verification  
-⚠️ **IFP Character Export** - New buttons not tested with skinned characters (use original Kam's for characters)
-- Old character export implementation (not loaded by GTA_DFF_IO.ms)
-- May be from earlier Kam's version or different source
-
-### gtaDFFout_Fn.mse (New)
-- Encrypted file not in original 2018 Goldfish
-- Possibly from original Kam's v1.0 or intermediate version
+✅ **2dfx UI** - All three buttons functional, cleaner interface
 
 ---
 
 ##Animation name matching is case-insensitive (uses `stricmp`)
 - Bone name matching still case-sensitive
-- No fuzzy matching for similar bone names
-- Export buttons work for world objects, **not tested with skinned characters** (use original Kam's for characters)
 - Timing has minor rounding variance (~0.8s on 130 frame animation, acceptable for game use)
 ✅ **UV Animation Export** - Tested with waterfall model (481/514 keys), working in-game  
 ✅ **UV Animation Import** - Successfully imports and optimizes keyframes  
@@ -343,7 +280,6 @@ These appear to be ** (January 2026)
 - Animation name matching is case-insensitive (uses `stricmp`)
 - Bone name matching still case-sensitive
 - No fuzzy matching for similar bone names
-- Export buttons work for world objects, **not tested with skinned characters** (use original Kam's for characters)
 - Timing has minor rounding variance (acceptable for game use)
 - **Position keys always imported for world objects** (required for proper positioning)
 
@@ -355,19 +291,10 @@ If updating from original 2018 Goldfish:
 
 1. **UV Animations**: Existing DFF files without UV anims will export identically
 2. **2dfx UI**: Old workflow still works, just fewer buttons
-3. **IFP Import**: Skip position checkbox now works (may behave differently than before if you had workarounds)
-4. **New Files**: IFP_IO_GTA.ms and IFP_IO_GTASA.ms are new - ensure they're loaded properly
-200+ | Major Enhancement | UV animation import, 2dfx import, material improvements, multi-anim IFP import |
-| ui_2dfx.ms | 126 | Moderate Cleanup | UI simplification, removed unused features |
-| GTA_DFF_IO.ms | 290+ | Major Enhancement | IFP export/import UI, character detection, error handling |
-| gtaIFPio_Fn.ms | N/A | Critical Fix + Decrypt | Decrypted from .mse, skip position keys fixed |
-| All .mse files | N/A | Decryption | All encrypted files converted to .ms |
-
-**Total Estimated**: ~2600+ lines changed/added across all files  
+ 
 **Most Impactful (Dec 2024)**: UV animation system (export + import)  
 **Most Impactful (Jan 2026)**: IFP export/import UI in GTA_DFF_IO.ms (world object animation workflow)  
-**User-Facing**: 2dfx UI cleanup, IFP skip position fix, IFP multi-animation matching, direct export/import from main UI
-   - Support for Bezier interpolation
+
 ## Recent Changes Log
 
 ### January 6, 2026
@@ -388,7 +315,6 @@ If updating from original 2018 Goldfish:
 **UV Animation & Core Fixes**:
 - UV animation export/import system implementation
 - 2dfx UI cleanup (removed unused buttons)
-- IFP skip position keys fix
 - Decrypted all .mse files to .ms
 
 ---
@@ -421,7 +347,6 @@ If updating from original 2018 Goldfish:
 | DFFimp.ms | 1132 | Major Enhancement | UV animation import, 2dfx import, material improvements |
 | ui_2dfx.ms | 126 | Moderate Cleanup | UI simplification, removed unused features |
 | GTA_DFF_IO.ms | 91 | Minor Polish | Error handling, tooltips |
-| gtaIFPio_Fn.ms | N/A | Critical Fix | Decrypted, skip position keys fixed |
 
 **Total Estimated**: ~2200 lines changed/added across all files  
 **Most Impactful**: UV animation system (export + import)  
