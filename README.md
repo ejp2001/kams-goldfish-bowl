@@ -4,8 +4,6 @@ This repo is an attempt to explore all possible fixes, improvements, and additio
 
 My primary focus is on GTA San Andreas compatibility; although, every attempt is being made to preserve whatever GTAIII and Vice City functionality exists. I do not guarantee their continued functionality, as I have moved on from modding them (not that I ever really did).
 
-This is not an attempt to stamp my name on any project, or to say "I could have done it better". I simply want a tool that works with GTA content in the best and most reliable way possible. Everything you see here I offer free of charge and without restriction for anyone interested in doing the same.
-
 This project makes extensive use of AI models. Most of what exists at present was created with the help of Claude Sonnet 4.5. I couldn't have done it without him! This is certain to prove an endlessly-evolving project guided primarily by AI capability and/or availability, so *expect errors.* I will attempt to address them as best I can.
 
 
@@ -67,6 +65,8 @@ For practical considerations, I opted to completely remove skinned character han
 **Action item:** Clump handling is currently missing from Character DFF_IO and its related files. The function will need to be fully recreated using Kam's original version as reference, then moved to Character_IO. This is now a priority for future development.
 
 *Note: The broken clump logic in the 2018 edition (and related files) may explain the lack of full player/clothing mods. Restoring correct clump handling from Kam's original is now a top priority to avoid future confusion.*
+
+* UV Animtion Editor: Still in preliminary stages. Animations work in 3DS Max, but do not play correctly in game. Should be fixed in next update.
 
 ## What was intentionally removed:
 
