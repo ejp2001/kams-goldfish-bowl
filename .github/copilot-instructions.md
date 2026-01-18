@@ -5,16 +5,6 @@ This repository is a restoration and modernization project whose primary goal is
 
 // ...existing content...
 
-## 3DS Max 2017 Reference
-
-**Note:** Complete offline help files for 3DS Max version 2017 can be found at:
-
-```
-research\3dsmax2017\en_us\
-```
-
-Since 3DS Max 2017 is the main test bed for this project, these help files are a valuable resource for checking available features and avoiding MaxScript errors. Refer to this directory for authoritative documentation when developing or troubleshooting scripts.
-
 Key rules:
 - Treat `scripts/GTA_Tools_2026/` as the active project code (our working copies).
 - All historical sources and references live under `originals/` or `modding resources/` and must be cited by exact path when used to restore behavior.
@@ -88,6 +78,13 @@ Authoritative references (do not edit directly):
 - `originals/Kams GTA Scripts original/` — original 2005 repo snapshot (contains `GTA_Tools/`).
 - `originals/Kams GTA Scripts 2018 Edition by Goldfish/` — Goldfish 2018 reference (contains `GTA_Tools(GF)/`, readmes).
 - `originals/Other Plugins/` — assorted plugin folders (examples: `dexx_gta/`, `dff/`, `GTA_Animation_XML_IO/`, etc.).
+
+
+## DFF Parser (internal reference)
+'research\rw-parser-ng' folder contains an internal RenderWare DFF parser written in TypeScript. This is a reference implementation to understand chunk structures and data layouts. It is NOT part of the 3ds Max toolset but can be used for offline analysis and verification of DFF files exported by the tools.
+
+## 3DS Max 2017 Help Files
+Complete offline help files for 3DS Max version 2017 can be found at: 'research\3dsmax2017\en_us\index.html'. Since 3DS Max 2017 is the main test bed for this project, these help files are a valuable resource for checking available features and avoiding MaxScript errors. Refer to this directory for authoritative documentation when developing or troubleshooting scripts.
 
 Notes:
 - If a filename appears in both `scripts/GTA_Tools_2026/` and `originals/`, treat `scripts/GTA_Tools_2026/` as the active, authoritative project file.
