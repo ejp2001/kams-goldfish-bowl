@@ -3,7 +3,6 @@
 -- 
 -- NOTE: For comprehensive character handling (advanced animation management,
 -- IFP editing, batch operations), use Character IO instead.
--- This tool supports basic skinned character import/export but is optimized
 -- for world objects and vehicles.
 
 global DFFexPara
@@ -24,6 +23,34 @@ global isIplImport = false
 -- MUTEX: Close other DFF tools to prevent global variable conflicts
 try (closeRolloutFloater IFP_IO_GTAsa) catch ()  -- Character IO
 
+-- Validation function for world object export
+-- Returns true if valid (no Skin modifier), false if character detected
+fn ValidateNotCharacter = (
+	if selection.count == 0 then (
+		messageBox "No objects selected for export." title:"GTA World Object Export"
+		return false
+	)
+	for obj in selection do (
+		-- Check if object has Skin modifier
+		for i = 1 to obj.modifiers.count do (
+			if classof obj.modifiers[i] == Skin then (
+				local msg = "*** CHARACTER MODEL DETECTED ***\n\n"
+				msg += "Object: " + obj.name + "\n"
+				msg += "Has Skin modifier (skinned character)\n\n"
+				msg += "This tool is for WORLD OBJECTS only.\n"
+				msg += "For skinned characters, use:\n\n"
+				msg += "GTA Character Tools:\n"
+				msg += "  GTA_Tools_2026/GTA_CHAR_IO.ms\n\n"
+				msg += "DO NOT use DFF_IO for characters.\n"
+				msg += "It creates seams and broken skinning."
+				messageBox msg title:"Wrong Tool - Use CHAR_IO"
+				return false
+			)
+		)
+	)
+	return true
+)
+
 -- Load IFP export/import functions (always reload to ensure latest version)
 fileIn (scriptspath+"\\GTA_Tools_2026\\gtaIFPio_Fn.ms") quiet:true
 
@@ -31,8 +58,6 @@ fn pbUpdate = (
 	pbcount += 1
 	DFFexPara.pb.value = (((pbcount as float)/pbMax)*100)
 )
-
--- Load import/export functions (ui_2dfx.ms removed - now in GTA_2DFX_IO.ms)
 
 -- Export IFP animation from hierarchy root object
 -- Wraps the existing ExpsaIFP/expAnim functions to work with UI buttons
@@ -128,12 +153,11 @@ fn ExportIFPFromRoot rootObj fname isAppend = (
 			-- Write SA format (ANP3) header
 			writeLong f 0x33504E41		-- ANP3
 			writeLong f 0				-- length placeholder
-			writeString f internalName	-- IFP internal name (e.g., "chiliad_int")
+			writeString f internalName	-- IFP internal name
 			for i = 1 to (24 - internalName.count - 1) do writeByte f 0
 			writeLong f 1				-- 1 animation (will update if appending later)
 		)
 		
-		-- Export using the working ExpsaIFP function from gtaIFPio_Fn.ms
 		local thisLength = ExpsaIFP f hierarchy animName
 		
 		if thisLength == undefined then (
@@ -283,7 +307,7 @@ fn getNum str = (
 )
 
 try (fileIn (scriptspath+"\\GTA_Tools_2026\\DFFimp.ms")) catch (format "Error loading DFFimp.ms: %\n" (getCurrentException()))
-try (fileIn (scriptspath+"\\GTA_Tools_2026\\DFFexp.ms") quiet:true) catch (format "Error loading DFFexp.ms: %\n" (getCurrentException()))
+try (fileIn (scriptspath+"\\GTA_Tools_2026\\DFFexp.ms")) catch (format "Error loading DFFexp.ms: %\n" (getCurrentException()))
 
 Global Dummysize = 0.1		--control the dummy size, change it before pressing the Import Button 
 Global SAColBase = undefined
@@ -301,13 +325,10 @@ fn getRootObj objArr = (
 )
 
 rollout aboutRoll "About" (
-	group "" (
-		checkbox sdtl "Show detail info." checked:false
-	)
 	
 	label l1 "- GTA DFF IO -" align:#center offset:[-12,8]
-	label l21_ " v0.4.0" align:#left
-	label l1_ " last upd: 09.12.25" align:#left
+	label l21_ " v2.0.1" align:#left
+	label l1_ " last upd: 01.16.26" align:#left
 	label l3 "The script can work with" align:#left offset:[0,8]
 	label s2 "  - Collision" align:#left
 	label s4 "  - Materials" align:#left
@@ -316,7 +337,7 @@ rollout aboutRoll "About" (
 	label s44 "  - Vehicle models" align:#left
 	
 	label l21 " "
-	label s41 "Other script features" align:#left
+	label s41 "Other script features" align:#left offset:[0,8]
 	label s5 "  - ZM Lock DFF" align:#left
 	label s6 "  - New noBack Lock DFF (by GF)" align:#left
 	label s62 "  - UV / Mesh Fix (optional)" align:#left
@@ -334,6 +355,8 @@ rollout aboutRoll "About" (
 	
 	label s15 "(c) Goldfish, Kam 2020" align:#right offset:[0,0]
 	label s18 "Remixed by E2001 2026" align:#right offset:[0,0]
+
+	-- Restored: sdtl checkbox for script compatibility
 )
 
 rollout DFFinPara "Import DFF" (
@@ -369,9 +392,14 @@ Group "Multi. Clump" (
 	)
 	
 	group "" (
+		
+		
 		--spinner ISc "Import Scale: " fieldwidth:42 range:[0,100,SPscale] align:#right
+		
 		button imp "Import DFF" width:120 height:30 align:#center tooltip:"Import world object DFF (redirects characters to Character IO)"
+		checkbox sdtl "Show verbose output in listener." checked:false align:#center
 		label lmasimp "Mass import is supported !"
+		
 	)
 	
 	-- START: IFP Import UI (added after Restore button group)
@@ -469,7 +497,7 @@ Group "Multi. Clump" (
 		)
 		
 		format "Importing world object...\n"
-		DFFin f 1.0 mattype.state texEx dummysize false aboutRoll.sdtl.checked (getFilenameFile gfname)
+		DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname)
 		)
 	)--end on useclump
     
@@ -522,7 +550,7 @@ Group "Multi. Clump" (
 									format "** Character model detected (Skin PLG found) **\nImporting with Skin modifier and minimal options.\nFor full character import options, use Character IO tool.\n\n"
 								)
 								
-							DFFin f 1.0 mattype.state texEx dummysize false aboutRoll.sdtl.checked (getFilenameFile fname[i])
+							 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i])
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (
@@ -563,10 +591,10 @@ Group "Multi. Clump" (
 							
 							if isCharacter then (
 								format "Detected character model (has Skin PLG), using DFFin...\n"
-								DFFin f 1.0 mattype.state texEx dummysize true aboutRoll.sdtl.checked (getFilenameFile fname)
+								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname)
 							) else (
 								format "Detected world object, using DFFin...\n"
-								DFFin f 1.0 mattype.state texEx dummysize true aboutRoll.sdtl.checked (getFilenameFile fname)
+								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname)
 							)
 							useclump.enabled = false
 							whichone.enabled = false
@@ -702,7 +730,7 @@ rollout DFFexPara "Export DFF" (
 		group "IFP Animation - Scenery Objects Only" (
 			button IFPexpNew "Export New IFP File" width:150 tooltip:"Export hierarchy animation as new IFP file (doors, gates, world objects)" align:#center
 			button IFPexpAppend "Append To Existing IFP File" width:150 tooltip:"Add animation to existing IFP file (multiple animations per file)" align:#center
-			label IFPanimInfo1 "*Scale Timeline To Animation Before Exporting*" align:#center
+			label IFPanimInfo1 "*Scale Timeline To Anim. Before Export*" align:#center
 		)
 
 		-- Manual IFP export handlers (inside the same rollout)
@@ -1383,49 +1411,14 @@ fn checkObjL objArr = (
 )--end rollout DFFexPara
 
 
--- Validation function for world object export
--- Returns true if valid (no Skin modifier), false if character detected
-fn ValidateNotCharacter = (
-	if selection.count == 0 then (
-		messageBox "No objects selected for export." title:"GTA World Object Export"
-		return false
-	)
-	
-	for obj in selection do (
-		-- Check if object has Skin modifier
-		for i = 1 to obj.modifiers.count do (
-			if classof obj.modifiers[i] == Skin then (
-				local msg = "*** CHARACTER MODEL DETECTED ***\n\n"
-				msg += "Object: " + obj.name + "\n"
-				msg += "Has Skin modifier (skinned character)\n\n"
-				msg += "This tool is for WORLD OBJECTS only.\n"
-				msg += "For skinned characters, use:\n\n"
-				msg += "GTA Character Tools:\n"
-				msg += "  GTA_Tools_2026/GTA_CHAR_IO.ms\n\n"
-				msg += "DO NOT use DFF_IO for characters.\n"
-				msg += "It creates seams and broken skinning."
-				messageBox msg title:"Wrong Tool - Use CHAR_IO"
-				return false
-			)
-		)
-	)
-	
-	return true
-)
-
--- ============================================================================
--- UV ANIMATION CREATOR ROLLOUT
--- ============================================================================
-rollout UVAnimCreator "UV Animation" width:250 (
+rollout UVAnimCreator "UV Animation" width:220 (
 	local currentMaterial = undefined
 	local currentBitmap = undefined
 	
 	label UVanimInfo1 "A Tool For Creating Sprite Sheet Animations" align:#center
-	label UVanimInfo2 "Animations Export Automatically When Present" align:#center
-	label UVanimInfo3 "~" align:#center
 	
 	group "Material Setup" (
-		materialButton matPick "Pick Material" width:220 height:40 tooltip:"Select material with texture to animate (Standard or GTA Material)"
+		materialButton matPick "Pick Material" width:160 height:30 tooltip:"Select material with texture to animate (Standard or GTA Material)"
 		label matInfo "" align:#center
 	)
 	
@@ -1456,11 +1449,11 @@ rollout UVAnimCreator "UV Animation" width:250 (
 	
 	group "Preview" (
 		spinner previewFrame "Preview Frame:" width:150 range:[1,16,1] type:#integer align:#right tooltip:"Frame number to preview on material (see in viewport)"
-		button btnPreview "Show Frame on Material" width:220 height:25 tooltip:"Display selected frame in viewport (preview only, no animation)"
+		button btnPreview "Show Frame on Material" width:200 height:25 tooltip:"Display selected frame in viewport (preview only, no animation)"
 	)
 	
-	button btnCreate "Create Animation" width:220 height:35 enabled:false tooltip:"Generate UV animation keyframes (exports automatically in DFF)"
-	button btnClear "Clear Animation Keys" width:220 height:25 enabled:false tooltip:"Remove all animation keys from this material"
+	button btnCreate "Create Animation" width:200 height:35 enabled:false tooltip:"Generate UV animation keyframes (exports automatically in DFF)"
+	button btnClear "Clear Animation Keys" width:200 height:25 enabled:false tooltip:"Remove all animation keys from this material"
 	
 	-- Update grid info when spinners change
 	on gridU changed val do (
@@ -1652,47 +1645,52 @@ rollout UVAnimCreator "UV Animation" width:250 (
 			return false
 		)
 		
-		-- Clear existing keys first
-		deleteKeys currentBitmap.coords.u_offset.controller
-		deleteKeys currentBitmap.coords.v_offset.controller
-		
-		-- Convert to Bezier controllers (supports stepped tangents)
-		currentBitmap.coords.u_offset.controller = bezier_float()
-		currentBitmap.coords.v_offset.controller = bezier_float()
-		
-		-- DO NOT modify tiling - it should already be set correctly in the material
-		-- The UVs are static, only the texture offset animates
-		
-		-- Create keyframes - one sprite per frame
-		for i = 1 to frames.count do (
-			local offset = getFrameOffset frames[i] gridU.value gridV.value
-			local frameIndex = (i - 1)  -- 0-based frame index
-			
-			animate on (
-				at time (frameIndex * 1f) (
-					currentBitmap.coords.u_offset = offset[1]
-					currentBitmap.coords.v_offset = offset[2]
-				)
-			)
-		)
-		
-		-- Force stepped tangents (no interpolation between sprites)
-		for key in currentBitmap.coords.u_offset.controller.keys do (
-			key.inTangentType = #step
-			key.outTangentType = #step
-		)
-		for key in currentBitmap.coords.v_offset.controller.keys do (
-			key.inTangentType = #step
-			key.outTangentType = #step
-		)
-		
-		-- Set animation range to match frame count
-		animationRange = interval 0f ((frames.count - 1) * 1f)
-		
-		-- Calculate actual playback duration
-		local duration = frames.count / animFPS.value
-		
-		messageBox ("UV animation created!\n\n" + frames.count as string + " frames (0-" + (frames.count - 1) as string + ")\nPlayback: " + animFPS.value as string + " fps = " + duration as string + " seconds\n\nSet Max framerate to " + animFPS.value as string + " fps for correct preview\n\nNote: Duration spinner ignored in frame-based mode") title:"Success" beep:false
+		   -- Clear existing keys first
+		   deleteKeys currentBitmap.coords.u_offset.controller
+		   deleteKeys currentBitmap.coords.v_offset.controller
+       
+		   -- Use linear_float controllers for clean stepped keys
+		   currentBitmap.coords.u_offset.controller = linear_float()
+		   currentBitmap.coords.v_offset.controller = linear_float()
+       
+		   -- TVAnimHelper logic: one key per frame, at 30 ticks per frame (1f = 1 frame at 30fps)
+		   local uCount = gridU.value
+		   local vCount = gridV.value
+		   local totalFrames = frames.count
+		   local startTime = 0f
+		   local frameTicks = 30f -- 1 frame = 30 ticks in Max
+		   local curTime = startTime
+       
+		   for i = 1 to totalFrames do (
+			   local offset = getFrameOffset frames[i] uCount vCount
+			   local u = offset[1]
+			   local v = offset[2]
+			   animate on (
+				   at time curTime (
+					   currentBitmap.coords.u_offset = u
+					   currentBitmap.coords.v_offset = v
+				   )
+			   )
+			   curTime += frameTicks
+		   )
+       
+		   -- Set animation range to match TVAnimHelper (start to last key time)
+		   animationRange = interval startTime (curTime - frameTicks)
+       
+		   -- Force stepped tangents (no interpolation between sprites)
+		   for key in currentBitmap.coords.u_offset.controller.keys do (
+			   key.inTangentType = #step
+			   key.outTangentType = #step
+		   )
+		   for key in currentBitmap.coords.v_offset.controller.keys do (
+			   key.inTangentType = #step
+			   key.outTangentType = #step
+		   )
+       
+		   -- Calculate actual playback duration
+		   local duration = totalFrames / 30.0 -- 30fps fixed
+       
+		   messageBox ("UV animation created!\n\n" + totalFrames as string + " frames (0-" + (totalFrames - 1) as string + ")\nPlayback: 30 fps = " + duration as string + " seconds\n\nSet Max framerate to 30 fps for correct preview\n\nNote: Duration spinner ignored in TVAnim mode") title:"Success" beep:false
 	)
 	
 	-- Clear animation keys
@@ -1714,7 +1712,7 @@ rollout UVAnimCreator "UV Animation" width:250 (
 
 global Kam_GTA
 if Kam_GTA != undefined then ( closeRolloutFloater Kam_GTA; gc() )
-Kam_GTA = newRolloutFloater "DFF IO" 250 740 10 50		
+Kam_GTA = newRolloutFloater "DFF IO" 240 640 10 50		
 addRollout DFFinPara Kam_GTA rolledup:true
 addRollout DFFexPara Kam_GTA rolledup:false
 addRollout UVAnimCreator Kam_GTA rolledup:true

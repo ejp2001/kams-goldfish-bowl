@@ -77,11 +77,11 @@ fn LoadImportSettings = (
 -- ROLLOUT 1: DFF IMPORT
 -- ===========================
 rollout importRoll "Import" (
-	radioButtons textype "Texture:" labels:#("TGA", "BMP", "PNG") columns:3 default:3 align:#center tooltip:"Texture file extension (.tga, .bmp, or .png)"
-	radioButtons materialType "Material:" labels:#("GTA Material", "Standard") columns:2 default:1 align:#center tooltip:"GTA Material (supports 2dfx) or Standard (Max native)"
-	spinner impScale "Import Scale:" fieldwidth:42 range:[0,100,1.0] align:#left tooltip:"Scale multiplier (1.0=game size, 10.0=easier to edit)"
-	button loaddff "Import Character DFF" width:200 height:28 align:#center tooltip:"Import skinned character with Skin modifier and bone weights"
-
+		radioButtons textype "Texture:" labels:#("TGA", "BMP", "PNG") columns:3 default:3 align:#center tooltip:"Texture file extension (.tga, .bmp, or .png)"
+		radioButtons materialType "Material:" labels:#("GTA Material", "Standard") columns:2 default:1 align:#center tooltip:"GTA Material (supports 2dfx) or Standard (Max native)"
+		spinner impScale "Import Scale:" fieldwidth:42 range:[0,100,1.0] align:#left tooltip:"Scale multiplier (1.0=game size, 10.0=easier to edit)"
+		button loaddff "Import Character DFF" width:200 height:28 align:#center tooltip:"Import skinned character with Skin modifier and bone weights"
+		checkbox sdtl "Show verbose output in listener." checked:false align:#center
 
 	
 	-- ===========================
@@ -150,7 +150,7 @@ rollout importRoll "Import" (
 					local matType = materialType.state  -- Direct: radio 1 -> GTA, radio 2 -> Standard
 					format "Material Type Selected: % (1=GTA, 2=Standard)\n" matType
 					-- Call DFFin from CharDFFimp.ms with scale
-					DFFin f impScale.value matType texExt 0.1 true false (getFilenameFile fname)
+					DFFin f impScale.value matType texExt 0.1 true importRoll.sdtl.checked (getFilenameFile fname)
 				)
 				fclose f
 				gc()
