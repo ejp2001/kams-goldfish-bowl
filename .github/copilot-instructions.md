@@ -1,14 +1,17 @@
 # GTA Modding Tools - AI Agent Context
 
 ## Purpose
-This repository is a restoration and modernization project whose primary goal is to recover and preserve the behavior of the original **Kam's GTA Scripts (2005)**. We use the 2018 Goldfish Edition as a technical base where it helps, but this repository is NOT the Goldfish Edition — it is explicitly an effort to restore original 2005 functionality, fix regressions introduced later, and selectively adopt useful improvements.
+This repository restores and preserves **Kam's GTA Scripts (2005)** with selective 2018 Goldfish Edition improvements. Primary goal: fix character export regressions while adding modern features (UV animations, world object IFP).
 
-// ...existing content...
+**Target Platform**: 3ds Max 2017 (MaxScript)  
+**Game**: GTA San Andreas (RenderWare engine)  
+**Test Method**: MUST verify exports in-game (MaxScript success ≠ working asset)
 
-Key rules:
-- Treat `scripts/GTA_Tools_2026/` as the active project code (our working copies).
-- All historical sources and references live under `originals/` or `modding resources/` and must be cited by exact path when used to restore behavior.
-- Duplicate filenames are expected across versions; always use full paths in PRs, commits and code comments to avoid ambiguity.
+## Key Rules
+- Active code: `scripts/GTA_Tools_2026/` (edit/ship)
+- References: `originals/`, `modding resources/` (cite full paths)
+- Duplicate filenames across versions - always use full paths
+- Test in-game before committing (visual checks + animation)
 
 ## Why this matters (short)
 - The 2005 exporter logic and the 2018 Goldfish logic are different in vertex remapping and clump handling. Using the wrong exporter for skinned characters corrupts skinning and animation data.
@@ -24,20 +27,21 @@ Key rules:
 
 When restoring behavior: add a one-line header to the changed file noting the exact originals path used (e.g. "Restored from: modding resources/kams original mse files decrypted/CharDFFexp.ms").
 
-## Two-tool rule (enforced)
-We enforce a strict separation between skinned-character tools and world-object tools.
+## Two-Tool Rule (Critical Architecture)
 
-- Character toolset (use for skinned characters only):
-  - File: `scripts/GTA_Tools_2026/GTA_CHAR_IO.ms`
-  - Behavior: Uses or references the original 2005 character exporter logic for seamless skinning and clump handling.
-  - NEVER use for props, vehicles, or non-skinned world objects.
+**Character Export** (`GTA_CHAR_IO.ms`):
+- Uses 2005 `RemapByVT` (vertex-based, preserves welding)
+- Loads: `CharDFFimp.ms`, `CharDFFexp.ms`, `gtaIFPio_Fn.ms`
+- For: Skinned characters, skeletal animations, IFP management
+- NEVER for: Props, vehicles, world objects
 
-- World-object toolset (use for props, vehicles, buildings):
-  - File: `scripts/GTA_Tools_2026/GTA_DFF_IO.ms`
-  - Behavior: 2018-style UV-first remapping and UV animation support; VALIDATES and BLOCKS objects that have a `Skin` modifier.
-  - NEVER use for skinned characters.
+**World Object Export** (`GTA_DFF_IO.ms`):
+- Uses 2018 `RemapByUV1/UV2` (UV-based, creates vertex splits)
+- Loads: `DFFimp.ms`, `DFFexp.ms`, `gtaIFPio_Fn.ms`
+- For: Props, vehicles, buildings, scenery (UV animations, object IFP)
+- Runtime validation: Blocks objects with `Skin` modifier
 
-Both UIs show explicit warning labels and `GTA_DFF_IO.ms` contains runtime validation (e.g. `ValidateNotCharacter()`) to prevent incorrect exports.
+**Why Separate Tools**: UV-based remapping breaks skinned mesh welding (visible seams). Vertex-based remapping distorts UV mapping. Different requirements → different tools.
 
 ## Practical guidance for contributors
 - When making changes, always state which source you referenced by full path in the commit message and file header.
@@ -135,30 +139,63 @@ Notes:
 - Bone matching by name or "BoneID" user property
 - Conditional position key creation based on `noPOSkey` flag
 
-## Development Guidelines
+## MaxScript Conventions
 
-### Making Changes
-1. **Read existing code context** - These scripts are 15+ years old with multiple contributors
-2. **Test in-game** - MaxScript errors don't mean game crashes, only in-game testing validates
-4. **Avoid "complete rewrites"** - Incremental targeted fixes only
+**File Loading Pattern**:
+```maxscript
+fileIn (scriptspath+"\\GTA_Tools_2026\\module.ms") quiet:true
+global charScriptPath = getFilenamePath(getThisScriptFilename())  -- Relative paths
+```
 
-### Common Pitfalls
-- **Case sensitivity**: MaxScript is case-insensitive but property names may have preferred casing
-- **Array indexing**: 1-based, not 0-based (`for i = 1 to array.count`)
-- **Undefined vs unsupplied**: Check `if var == undefined` and `if var == unsupplied`
-- **File I/O**: Binary operations use `fopen`, `fseek`, `readLong`, `writeLong`, etc.
-- **Memory management**: Always `delete` temporary meshes/objects
-- **Global variables**: Many globals used (`gUVpack`, `gMeshFix`, `bNVC`, etc.) - be careful with scope
+**Settings Persistence**:
+```maxscript
+-- Save: setINISetting iniFile "Section" "key" (value as string)
+-- Load: getINISetting iniFile "Section" "key"
+-- Path: scriptsPath + "GTA_Tools_2026\\settings.ini"
+```
 
-### Testing Requirements
-Any export changes require:
+**Array Indexing**: 1-based (`for i = 1 to array.count`)
+
+**Type Checking**:
+```maxscript
+if var == undefined then ...     -- Uninitialized
+if var == unsupplied then ...    -- Function parameter not provided
+```
+
+**Binary I/O**: `fopen`, `fseek`, `readLong`, `writeLong`, `fclose`
+
+**Memory Management**: Always `delete` temporary meshes/objects
+
+**Global Scope**: Tools use many globals (`gUVpack`, `bNVC`, etc.) - check conflicts before adding new ones
+
+**MUTEX Pattern**: Close conflicting tools before launch:
+```maxscript
+try (closeRolloutFloater Kam_GTA) catch ()  -- In CHAR_IO
+try (closeRolloutFloater IFP_IO_GTAsa) catch ()  -- In DFF_IO
+```
+
+## Development Workflow
+
+**Making Changes**:
+1. Read existing code context (15+ years old, multiple contributors)
+2. Cite source file path when restoring behavior
+3. **Test in-game** before committing - MaxScript success ≠ working asset
+4. Incremental targeted fixes only (no complete rewrites)
+
+**Testing Requirements** (ANY export change):
 1. Export from 3ds Max
 2. Load DFF in GTA San Andreas
 3. Verify visual appearance in-game
 4. Test animations/deformations if applicable
 5. Check for crashes/corruption
 
-MaxScript "success" ≠ working game asset. The game engine is the final validator.
+**Common Pitfalls**:
+- Case sensitivity: MaxScript is case-insensitive but property names may have preferred casing
+- Missing `delete` on temporary objects causes memory leaks
+- Global variable conflicts between tools (use MUTEX pattern)
+- Forgetting to test in-game (Max preview ≠ game rendering)
+
+**Tool Installation**: Copy `scripts/` folder contents to `3DS_MAX_INSTALLATION/scripts/`. Startup script adds GTA Tools menu automatically.
 
 ## Vertex Topology & UV Mapping (January 2026 Research)
 
@@ -308,18 +345,37 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
 - Complete 3DS Max 2017 reference: `research\3dsmax2017\en_us\index.html`
 
 ## Questions to Ask Before Modifying
-1. Does this affect skinned character exports? (Use original version instead)
-2. Is this file encrypted (.mse)? (Cannot modify)
+1. Does this affect skinned character exports? (Use 2005 original version)
+2. Is this file encrypted (.mse)? (Cannot modify - use decrypted copies)
 3. Will this change binary chunk structure? (Requires in-game testing)
 4. Does this modify vertex count/order? (May break skin weights)
 5. Is there a simpler workaround? (Prefer minimal changes)
+6. Which originals/ file should I reference? (Cite exact path)
+
+## File Structure & Dependencies
+
+**Main UIs** (load subsidiary modules):
+- `GTA_CHAR_IO.ms` → `CharDFFimp.ms`, `CharDFFexp.ms`, `gtaIFPio_Fn.ms`
+- `GTA_DFF_IO.ms` → `DFFimp.ms`, `DFFexp.ms`, `gtaIFPio_Fn.ms`
+- `GTA_Map_IO.ms` → `DFFimp.ms`, `gtaMapIO_Fn.ms`, `emt_startup.ms`
+- `GTA_COL_IO.ms` → Collision import/export (standalone)
+- `GTA_2DFX_IO.ms` → `ui_2dfx.ms` (2DFX effects editor)
+
+**Startup**:
+- `scripts/startup/GTAScript_Controller.ms` - Adds "GTA Tools" menu on Max launch
+- Uses `macroScript` to define menu items that call `fileIn` on tools
+
+**Settings Persistence**:
+- Stored in: `scriptsPath + "GTA_Tools_2026\\settings.ini"`
+- Sections: `[Import_Shared]`, `[Character_Import]`, etc.
+- Keys: `mattype`, `textype`, `scale`
 
 ## Contact & Workflow
-- Repository: kams-goldfish-bowl (E2001)
+- Repository: ejp2001/kams-goldfish-bowl
 - Branch: main
-- User maintains two separate tool installations
 - Always verify changes in-game before committing
 - Rollback via git if exports cause crashes
+- Use full paths in commit messages (e.g., `modding resources/kams original mse files decrypted/CharDFFexp.ms`)
 
 ## Contribution History
 - **2005**: Kam's original scripts - Character animations (IFP_IO_GTA.ms), DFF/COL import/export, seamless character export
@@ -332,5 +388,5 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
   - Integration of 2005 character export for seamless skinning
 
 ---
-*Last Updated: January 8, 2026*  
+*Last Updated: February 2, 2026*  
 *Based on: Kam's GTA Scripts v1.0 (2005) + 2018 Goldfish Edition enhancements + E2001 improvements + UndefinifiedGrove source code analysis*

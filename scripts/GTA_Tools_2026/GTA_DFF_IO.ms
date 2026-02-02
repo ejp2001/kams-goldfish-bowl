@@ -1411,311 +1411,181 @@ fn checkObjL objArr = (
 )--end rollout DFFexPara
 
 
-rollout UVAnimCreator "UV Animation" width:220 (
-	local currentMaterial = undefined
-	local currentBitmap = undefined
+rollout tv_roll "UV Animation" width:220 height:140
+(
+	edittext comline "" pos:[2,63] width:220 height:20
+	label lbl1 "Set frame sequence , Duration" pos:[12,47] width:196 height:15
+	label lbl2 "U count" pos:[7,6] width:46 height:15
+	label lbl3 "V count" pos:[7,25] width:46 height:15
+	spinner Ucount "" pos:[57,6] width:46 height:16 range:[1,100,2] type:#integer
+	spinner Vcount "" pos:[57,26] width:46 height:16 range:[1,100,3] type:#integer
+	materialButton pickmat "pick material" pos:[115,5] width:100 height:38
+	button go "GO" pos:[30,90] width:150 height:32
+	--bitmap bmp2 "Bitmap" pos:[5,87] width:400 height:400	
 	
-	label UVanimInfo1 "A Tool For Creating Sprite Sheet Animations" align:#center
+
+local frames = #(), dTime = #()
+local i, j, bmap
+
+
+fn DeleteSpaces str = (
+local res = "", i, k
+local ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+local lcase = "abcdefghijklmnopqrstuvwxyz"
+
+for i = 1 to str.count do 
+ if str[i] != " " do 
+  if (k = findString ucase str[i])==undefined then res += str[i]
+   else res += lcase[k]
+
+res
+) -- end fn
+
+
+fn getFrameOffset frame = (
+local res = #()
+res[1] = - (mod (frame - 1) Ucount.value)
+res[2] = - floor ((frame - 1) / Ucount.value) --as integer
+res
+) -- end fn
+
+
+
+
+fn compile str = (
+local i, j, n, fs, s, ss, n, n1, n2, dn, bmap
+frames = #()
+dTime = #()
+
+fs = filterString str ";"
+format "---fs---%\n" fs
+
+for i = 1 to fs.count do (
+ AnimTime = 30f
+ n = findString fs[i] "time="
+ if n != undefined then (AnimTime = (((substring fs[i] (n+5) 100) as float) * 30) as time
+                         s = substring fs[i] 1 (n-1))
+				   else  s = fs[i]
+ frames[i] = #()
+ 
+ if s.count > 0 then (
+ NumF = 0
+ ss = filterString s ","
+ Fcount = NumF
+ for j = 1 to ss.count do (
+  if (n = findstring ss[j] "..") != undefined then (
+   n1 = (substring ss[j] 1 n) as integer
+   n2 = (substring ss[j] (n+2) -1) as integer
+   if n2 > n1 then dn = 1
+    else
+	 dn = -1
+   while n1!=n2 do (
+    Numf +=1 ; frames[i][NumF] = n1
+	n1 += dn
+   )
+   
+   Numf +=1 ; frames[i][NumF] = n2
+  ) -- if 
+  else (Numf +=1 ; frames[i][NumF] = ss[j] as integer)
+  
+ dTime[i] = AnimTime / (NumF - Fcount)
+ ) -- ss.count; j loop
+ ) -- if s.count >0
+ else  (frames[i][1] = frames[i-1][frames[i-1].count]
+        dTime[i] = AnimTime)
+ 
+ ) -- i loop
+ 
+format "%----%\n" frames dTime
+) -- end compile	
+
+
+
+
+on pickmat picked mtl do (
+ if isKindOf mtl Gta_Mtl then
+  if mtl.colormap == undefined then messageBox "No texture in material"
+  else (
+   bmap = mtl.colorMap
+   pickMat.text = mtl.name
+   bmap.coords.u_offset.controller = linear_float ()
+   bmap.coords.v_offset.controller = linear_float ()
+   bmap.coords.u_tiling.controller = linear_float ()
+   bmap.coords.v_tiling.controller = linear_float ()
+   --bmp2.fileName = bmap.fileName
+   comline.text = "1.." + (Ucount.value * Vcount.value) as string + ",time=1.0"
+  )
+ else
+ if  isKindOf mtl Standard then
+  if mtl.DiffuseMap == undefined then messageBox "No texture in material"
+  else (
+   bmap = mtl.DiffuseMap
+   pickMat.text = mtl.name
+   bmap.coords.u_offset.controller = linear_float ()
+   bmap.coords.v_offset.controller = linear_float ()
+   bmap.coords.u_tiling.controller = linear_float ()
+   bmap.coords.v_tiling.controller = linear_float ()   
+   --bmp2.fileName = bmap.fileName
+   comline.text = "1.." + (Ucount.value * Vcount.value) as string + ",time=1.0"
+  )
+  else  (
+   pickMat.material = undefined
+   pickMat.text = "pick material"
+   MessageBox "select Standard or KAM's GTA material"
+   --bmp2.bitmap = undefined
+   comline.text = ""
+  )
+) -- on pickMat pressed
+
+
 	
-	group "Material Setup" (
-		materialButton matPick "Pick Material" width:160 height:30 tooltip:"Select material with texture to animate (Standard or GTA Material)"
-		label matInfo "" align:#center
-	)
+on go pressed do 
+ if comline.text.count>0 then (
+ cline = DeleteSpaces comline.text
+ 
+ compile cline
+ 
+ CurTime = AnimationRange.start
+ --animate on (
+ -- at time CurTime bmap.coords.u_tiling = 1.0/Ucount.value
+ -- at time CurTime bmap.coords.v_tiling = 1.0/Vcount.value
+ -- )
+ --AddOffset = #(((Ucount.value as float) - 1.0)/2.0, ((Vcount.value as float) - 1.0)/2.0)
+ 
+ for i = 1 to dTime.count do (
+  if frames[i].count>0 then 
+   for j = 1 to frames[i].count do (
+   Foffset = getFrameOffset frames[i][j]
+   format "## %\n" Foffset
+    animate on (
+	 at time CurTime bmap.coords.u_offset = Foffset[1]/Ucount.value -- + AddOffset[1]
+	 at time CurTime bmap.coords.v_offset = Foffset[2]/Vcount.value -- + AddOffset[2]
+	 CurTime += dTime[i]
+	 at time (CurTime - 1t) bmap.coords.u_offset = Foffset[1]/Ucount.value -- + AddOffset[1]
+	 at time (CurTime - 1t) bmap.coords.v_offset = Foffset[2]/Vcount.value -- + AddOffset[2]
+	 ) -- animate on
+  ) -- j loop
+  else CurTime += dTime[i]
+ ) -- i loop
+ 
+ Foffset = getFrameOffset frames[1][1]
+ animate on (
+  at time CurTime bmap.coords.u_offset = Foffset[1]/Ucount.value
+  at time CurTime bmap.coords.v_offset = Foffset[2]/Vcount.value
+ )
+ 
+ animationRange = (interval AnimationRange.start CurTime)
+ 
+) -- on go preesed
 	
-	group "Sprite Sheet Grid" (
-		spinner gridU "Columns (U):" width:150 range:[1,100,4] type:#integer align:#right tooltip:"Number of frames across texture width (left to right)"
-		spinner gridV "Rows (V):" width:150 range:[1,100,4] type:#integer align:#right tooltip:"Number of frames down texture height (top to bottom)"
-		label gridInfo "Total frames: 16" align:#center
-	)
-	
-	group "Animation Sequence" (
-		radioButtons seqType labels:#("All Frames", "Frame Range", "Custom") default:1 tooltip:"All Frames=entire sheet • Frame Range=specify start/end • Custom=choose specific frames"
-		
-		-- Frame range controls
-		spinner startFrame "Start Frame:" width:150 range:[1,100,1] type:#integer align:#right enabled:false tooltip:"First frame to play (Frame 1=top-left corner)"
-		spinner endFrame "End Frame:" width:150 range:[1,100,16] type:#integer align:#right enabled:false tooltip:"Last frame to play (counts left→right, top→bottom)"
-		
-		-- Custom sequence
-		edittext customSeq "" height:40 enabled:false text:"1,2,3,4,5,6,7,8" align:#center tooltip:"Custom order: ranges (1..8) or individual frames (1,3,5)"
-		button btnSeqHelp "Sequence Help (?)" width:120 height:20 enabled:false tooltip:"Show custom sequence syntax and examples" align:#center
-		label customHelp "Format: 1,2,3 or 1..8 or 1..4,8..12" align:#left enabled:false
-	)
-	
-	group "Timing" (
-		spinner animDuration "Duration (seconds):" width:150 range:[0.1,60.0,2.0] type:#float align:#right tooltip:"Total animation length in seconds (one complete loop)"
-		spinner animFPS "Playback FPS:" width:150 range:[1,60,15] type:#float align:#right tooltip:"Frames per second (15=smooth, lower=choppier)"
-		label fpsInfo "Game default: 15 FPS" align:#center
-	)
-	
-	group "Preview" (
-		spinner previewFrame "Preview Frame:" width:150 range:[1,16,1] type:#integer align:#right tooltip:"Frame number to preview on material (see in viewport)"
-		button btnPreview "Show Frame on Material" width:200 height:25 tooltip:"Display selected frame in viewport (preview only, no animation)"
-	)
-	
-	button btnCreate "Create Animation" width:200 height:35 enabled:false tooltip:"Generate UV animation keyframes (exports automatically in DFF)"
-	button btnClear "Clear Animation Keys" width:200 height:25 enabled:false tooltip:"Remove all animation keys from this material"
-	
-	-- Update grid info when spinners change
-	on gridU changed val do (
-		local totalFrames = gridU.value * gridV.value
-		gridInfo.text = "Total frames: " + totalFrames as string
-		endFrame.range = [1, totalFrames, totalFrames]
-		previewFrame.range = [1, totalFrames, 1]
-	)
-	
-	on gridV changed val do (
-		local totalFrames = gridU.value * gridV.value
-		gridInfo.text = "Total frames: " + totalFrames as string
-		endFrame.range = [1, totalFrames, totalFrames]
-		previewFrame.range = [1, totalFrames, 1]
-	)
-	
-	-- Enable/disable controls based on sequence type
-	on seqType changed state do (
-		case state of (
-			1: ( -- All Frames
-				startFrame.enabled = false
-				endFrame.enabled = false
-				customSeq.enabled = false
-				customHelp.enabled = false
-				btnSeqHelp.enabled = false
-			)
-			2: ( -- Frame Range
-				startFrame.enabled = true
-				endFrame.enabled = true
-				customSeq.enabled = false
-				customHelp.enabled = false
-				btnSeqHelp.enabled = false
-			)
-			3: ( -- Custom
-				startFrame.enabled = false
-				endFrame.enabled = false
-				customSeq.enabled = true
-				customHelp.enabled = true
-				btnSeqHelp.enabled = true
-			)
-		)
-	)
-	
-	-- Custom sequence help
-	on btnSeqHelp pressed do (
-		local helpText = ""
-		helpText += "CUSTOM SEQUENCE SYNTAX\n"
-		helpText += "================================\n\n"
-		helpText += "HOW FRAMES ARE NUMBERED:\n"
-		helpText += "Frames count left→right, top→bottom\n"
-		helpText += "Example 4×4 grid:\n"
-		helpText += "  1  2  3  4\n"
-		helpText += "  5  6  7  8\n"
-		helpText += "  9 10 11 12\n"
-		helpText += " 13 14 15 16\n\n"
-		helpText += "SYNTAX OPTIONS:\n"
-		helpText += "- Individual frames: 1,3,5,7\n"
-		helpText += "- Ranges: 1..8  (frames 1 through 8)\n"
-		helpText += "- Mixed: 1..4,8,12..16\n"
-		helpText += "- Backwards: 8..1  (reverse order)\n"
-		helpText += "- Repeats: 1,1,2,2,3,3  (hold frames)\n\n"
-		helpText += "TIMING:\n"
-		helpText += "- ALL frames play at EQUAL speed\n"
-		helpText += "- Duration divides evenly across frames\n"
-		helpText += "- Example: 2 seconds ÷ 8 frames = 0.25s each\n"
-		helpText += "- To slow specific frames, repeat them:\n"
-		helpText += "  '1,2,2,3,3,4' (frames 2 and 3 play twice as long)\n\n"
-		helpText += "EXAMPLES:\n"
-		helpText += "- Forward loop: 1..16\n"
-		helpText += "- Reverse loop: 16..1\n"
-		helpText += "- Ping-pong: 1..8,8..1\n"
-		helpText += "- Skip frames: 1,3,5,7,9,11,13,15\n"
-		helpText += "- Complex: 1..4,10,10,12..16,1\n\n"
-		helpText += "LIMITATIONS:\n"
-		helpText += "- Cannot change speed per frame\n"
-		helpText += "- All frames same duration\n"
-		helpText += "- Use repeats for variable timing"
-		
-		messageBox helpText title:"Custom Sequence Help" beep:false
-	)
-	
-	-- Material picker
-	on matPick picked mtl do (
-		local bmap = undefined
-		
-		if isKindOf mtl GTA_Mtl then (
-			if mtl.colormap != undefined then bmap = mtl.colorMap
-			else (
-				messageBox "GTA material has no texture map!" title:"Error"
-				matPick.material = undefined
-				return false
-			)
-		) else if isKindOf mtl Standard then (
-			if mtl.DiffuseMap != undefined then bmap = mtl.DiffuseMap
-			else (
-				messageBox "Standard material has no diffuse map!" title:"Error"
-				matPick.material = undefined
-				return false
-			)
-		) else (
-			messageBox "Please select a Standard or GTA_Mtl material" title:"Error"
-			matPick.material = undefined
-			return false
-		)
-		
-		currentMaterial = mtl
-		currentBitmap = bmap
-		matInfo.text = "Material: " + mtl.name
-		btnCreate.enabled = true
-		btnClear.enabled = true
-		
-		-- Initialize controllers if needed
-		if bmap.coords.u_offset.controller == undefined then bmap.coords.u_offset.controller = linear_float()
-		if bmap.coords.v_offset.controller == undefined then bmap.coords.v_offset.controller = linear_float()
-		if bmap.coords.u_tiling.controller == undefined then bmap.coords.u_tiling.controller = linear_float()
-		if bmap.coords.v_tiling.controller == undefined then bmap.coords.v_tiling.controller = linear_float()
-	)
-	
-	-- Calculate frame offset in sprite sheet
-	fn getFrameOffset frame uCount vCount = (
-		local u = -(((mod (frame - 1) uCount) as float) / (uCount as float))
-		local v = -(((floor ((frame - 1) / uCount)) as float) / (vCount as float))
-		#(u, v)
-	)
-	
-	-- Preview frame
-	on btnPreview pressed do (
-		if currentBitmap == undefined then (
-			messageBox "Pick a material first!" title:"Error"
-			return false
-		)
-		
-		local offset = getFrameOffset previewFrame.value gridU.value gridV.value
-		-- Don't modify tiling - only change offset to scroll texture
-		currentBitmap.coords.u_offset = offset[1]
-		currentBitmap.coords.v_offset = offset[2]
-		completeRedraw()
-	)
-	
-	-- Parse custom sequence string (supports "1,2,3" and "1..8" syntax)
-	fn parseSequence str = (
-		local frames = #()
-		local parts = filterString str ",;"
-		
-		for part in parts do (
-			local trimmed = trimLeft (trimRight part)
-			if findString trimmed ".." != undefined then (
-				-- Range: "1..8"
-				local rangeParts = filterString trimmed "."
-				local rangeStart = rangeParts[1] as integer
-				local rangeEnd = rangeParts[rangeParts.count] as integer
-				for i = rangeStart to rangeEnd do append frames i
-			) else (
-				-- Single frame
-				append frames (trimmed as integer)
-			)
-		)
-		frames
-	)
-	
-	-- Create animation
-	on btnCreate pressed do (
-		if currentBitmap == undefined then (
-			messageBox "Pick a material first!" title:"Error"
-			return false
-		)
-		
-		-- Build frame sequence
-		local frames = #()
-		case seqType.state of (
-			1: ( -- All frames
-				local totalFrames = gridU.value * gridV.value
-				for i = 1 to totalFrames do append frames i
-			)
-			2: ( -- Frame range
-				for i = startFrame.value to endFrame.value do append frames i
-			)
-			3: ( -- Custom
-				frames = parseSequence customSeq.text
-				if frames.count == 0 then (
-					messageBox "Invalid frame sequence!" title:"Error"
-					return false
-				)
-			)
-		)
-		
-		if frames.count == 0 then (
-			messageBox "No frames to animate!" title:"Error"
-			return false
-		)
-		
-		   -- Clear existing keys first
-		   deleteKeys currentBitmap.coords.u_offset.controller
-		   deleteKeys currentBitmap.coords.v_offset.controller
-       
-		   -- Use linear_float controllers for clean stepped keys
-		   currentBitmap.coords.u_offset.controller = linear_float()
-		   currentBitmap.coords.v_offset.controller = linear_float()
-       
-		   -- TVAnimHelper logic: one key per frame, at 30 ticks per frame (1f = 1 frame at 30fps)
-		   local uCount = gridU.value
-		   local vCount = gridV.value
-		   local totalFrames = frames.count
-		   local startTime = 0f
-		   local frameTicks = 30f -- 1 frame = 30 ticks in Max
-		   local curTime = startTime
-       
-		   for i = 1 to totalFrames do (
-			   local offset = getFrameOffset frames[i] uCount vCount
-			   local u = offset[1]
-			   local v = offset[2]
-			   animate on (
-				   at time curTime (
-					   currentBitmap.coords.u_offset = u
-					   currentBitmap.coords.v_offset = v
-				   )
-			   )
-			   curTime += frameTicks
-		   )
-       
-		   -- Set animation range to match TVAnimHelper (start to last key time)
-		   animationRange = interval startTime (curTime - frameTicks)
-       
-		   -- Force stepped tangents (no interpolation between sprites)
-		   for key in currentBitmap.coords.u_offset.controller.keys do (
-			   key.inTangentType = #step
-			   key.outTangentType = #step
-		   )
-		   for key in currentBitmap.coords.v_offset.controller.keys do (
-			   key.inTangentType = #step
-			   key.outTangentType = #step
-		   )
-       
-		   -- Calculate actual playback duration
-		   local duration = totalFrames / 30.0 -- 30fps fixed
-       
-		   messageBox ("UV animation created!\n\n" + totalFrames as string + " frames (0-" + (totalFrames - 1) as string + ")\nPlayback: 30 fps = " + duration as string + " seconds\n\nSet Max framerate to 30 fps for correct preview\n\nNote: Duration spinner ignored in TVAnim mode") title:"Success" beep:false
-	)
-	
-	-- Clear animation keys
-	on btnClear pressed do (
-		if currentBitmap == undefined then (
-			messageBox "Pick a material first!" title:"Error"
-			return false
-		)
-		
-		if queryBox "Clear all animation keys from this material's UV coordinates?" title:"Confirm" then (
-			deleteKeys currentBitmap.coords.u_offset.controller
-			deleteKeys currentBitmap.coords.v_offset.controller
-			deleteKeys currentBitmap.coords.u_tiling.controller
-			deleteKeys currentBitmap.coords.v_tiling.controller
-			messageBox "Animation keys cleared" title:"Done"
-		)
-	)
-)
+) -- end rollout
 
 global Kam_GTA
 if Kam_GTA != undefined then ( closeRolloutFloater Kam_GTA; gc() )
 Kam_GTA = newRolloutFloater "DFF IO" 240 640 10 50		
 addRollout DFFinPara Kam_GTA rolledup:true
 addRollout DFFexPara Kam_GTA rolledup:false
-addRollout UVAnimCreator Kam_GTA rolledup:true
+addRollout tv_roll Kam_GTA rolledup:true
 addRollout aboutRoll Kam_GTA rolledup:true
 
 
