@@ -1411,19 +1411,19 @@ fn checkObjL objArr = (
 )--end rollout DFFexPara
 
 
-rollout tv_roll "UV Animation" width:220 height:140
+rollout tv_roll "UV Sprite Animation" width:220 height:140
 (
 	edittext comline "" pos:[2,63] width:220 height:20
-	label lbl1 "Set frame sequence , Duration" pos:[12,47] width:196 height:15
+	label lbl1 "Adjust Sequence and Duration" pos:[12,47] width:196 height:15
 	label lbl2 "U count" pos:[7,6] width:46 height:15
 	label lbl3 "V count" pos:[7,25] width:46 height:15
 	spinner Ucount "" pos:[57,6] width:46 height:16 range:[1,100,2] type:#integer
 	spinner Vcount "" pos:[57,26] width:46 height:16 range:[1,100,3] type:#integer
 	materialButton pickmat "pick material" pos:[115,5] width:100 height:38
-	button go "GO" pos:[30,90] width:150 height:32
-	--bitmap bmp2 "Bitmap" pos:[5,87] width:400 height:400	
+	bitmap bmp2 "Bitmap" pos:[5,87] width:128 height:128	
+	label lbl4 "Set UV Count before picking material. Command line will be filled in automatically. Set time as float." pos:[138,86] width:84 height:90
+	button go "Create Animation" pos:[138,180] width:84 height:38
 	
-
 local frames = #(), dTime = #()
 local i, j, bmap
 
@@ -1502,40 +1502,45 @@ format "%----%\n" frames dTime
 
 
 
+
 on pickmat picked mtl do (
  if isKindOf mtl Gta_Mtl then
   if mtl.colormap == undefined then messageBox "No texture in material"
   else (
-   bmap = mtl.colorMap
-   pickMat.text = mtl.name
-   bmap.coords.u_offset.controller = linear_float ()
-   bmap.coords.v_offset.controller = linear_float ()
-   bmap.coords.u_tiling.controller = linear_float ()
-   bmap.coords.v_tiling.controller = linear_float ()
-   --bmp2.fileName = bmap.fileName
-   comline.text = "1.." + (Ucount.value * Vcount.value) as string + ",time=1.0"
+	bmap = mtl.colormap
+	pickMat.text = mtl.name
+	bmap.coords.u_offset.controller = linear_float ()
+	bmap.coords.v_offset.controller = linear_float ()
+	bmap.coords.u_tiling.controller = linear_float ()
+	bmap.coords.v_tiling.controller = linear_float ()
+	local thumb = bitmap 128 128
+	copy bmap.bitmap thumb
+	bmp2.bitmap = thumb
+	comline.text = "1.." + (Ucount.value * Vcount.value) as string + ",time=1.0"
   )
  else
  if  isKindOf mtl Standard then
   if mtl.DiffuseMap == undefined then messageBox "No texture in material"
   else (
-   bmap = mtl.DiffuseMap
-   pickMat.text = mtl.name
-   bmap.coords.u_offset.controller = linear_float ()
-   bmap.coords.v_offset.controller = linear_float ()
-   bmap.coords.u_tiling.controller = linear_float ()
-   bmap.coords.v_tiling.controller = linear_float ()   
-   --bmp2.fileName = bmap.fileName
-   comline.text = "1.." + (Ucount.value * Vcount.value) as string + ",time=1.0"
+	bmap = mtl.DiffuseMap
+	pickMat.text = mtl.name
+	bmap.coords.u_offset.controller = linear_float ()
+	bmap.coords.v_offset.controller = linear_float ()
+	bmap.coords.u_tiling.controller = linear_float ()
+	bmap.coords.v_tiling.controller = linear_float ()
+	local thumb = bitmap 128 128
+	copy bmap.bitmap thumb
+	bmp2.bitmap = thumb
+	comline.text = "1.." + (Ucount.value * Vcount.value) as string + ",time=1.0"
   )
   else  (
    pickMat.material = undefined
    pickMat.text = "pick material"
    MessageBox "select Standard or KAM's GTA material"
-   --bmp2.bitmap = undefined
+   bmp2.bitmap = undefined
    comline.text = ""
   )
-) -- on pickMat pressed
+)
 
 
 	
