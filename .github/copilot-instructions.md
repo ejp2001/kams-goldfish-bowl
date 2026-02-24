@@ -342,7 +342,6 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
 - RenderWare Graphics SDK documentation (if available)
 - GTA Modding Wiki: https://gtamods.com
 - Original Kam's forum threads (archived)
-- Complete 3DS Max 2017 reference: `research\3dsmax2017\en_us\index.html`
 
 ## Questions to Ask Before Modifying
 1. Does this affect skinned character exports? (Use 2005 original version)

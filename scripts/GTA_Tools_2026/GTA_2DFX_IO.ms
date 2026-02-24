@@ -53,5 +53,5 @@ rollout DFF2dfxMain "2dfx Effects" width:250 (
 
 -- Create and show floater
 try (closeRolloutFloater twoDFX_Floater) catch ()
-twoDFX_Floater = newRolloutFloater "2dfx Editor" 250 350 10 50
+twoDFX_Floater = newRolloutFloater "2dfx Editor" 240 350 10 50
 addRollout DFF2dfxMain twoDFX_Floater

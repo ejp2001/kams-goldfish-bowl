@@ -31,6 +31,27 @@ fn addKamsToolsMenu_ = (
 		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find DFF IO script"
 	)
+	macroScript kams_chario
+		buttonText:"Character IO"
+		category:"KAMs_Scripts"
+		internalCategory:"KAMs_Scripts" (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_CHAR_IO.ms")   )
+		catch messagebox "Please re-install my Character IO script!" title:"Can't find Character IO script"
+	)
+	macroScript kams_ifpio
+		buttonText:"IFP IO"
+		category:"KAMs_Scripts"
+		internalCategory:"KAMs_Scripts" (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_IFP_IO.ms")   )
+		catch messagebox "Please re-install my IFP IO script!" title:"Can't find IFP IO script"
+	)
+	macroScript kams_uvani
+		buttonText:"UV Animation"
+		category:"KAMs_Scripts"
+		internalCategory:"KAMs_Scripts" (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_UV_ANI.ms")   )
+		catch messagebox "Please re-install my UV Animation script!" title:"Can't find UV Animation script"
+	)
 	macroScript kams_colio
 		buttonText:"COL IO"
 		category:"KAMs_Scripts"
@@ -469,13 +490,18 @@ fn addKamsToolsMenu_ = (
 		testItem = menuMan.createActionItem ("kams_t_alignPivot") "KAMs_Scripts"
 		subSubMenu4.addItem testItem -1
 
-			
-		-----------------------updating menu
-		subMenuItem = menuMan.createSubMenuItem "Test Menu" subMenu
-		subMenuIndex = mainMenuBar.numItems() 0
-		mainMenuBar.addItem subMenuItem subMenuIndex
-		menuMan.updateMenuBar()
-	) catch messagebox ("Error creating GTA Tools menu!\n\nYou can run scripts manually from the folder:\n" + scriptspath+"\GTA_Tools_2026\Tools\\") title: "Kam's GTA Scripts (GF)"
+		separator5 = menuMan.createSeparatorItem() -- LINE
+		subMenu.addItem separator5 -1
+		subSubMenu5 = menuMan.createMenu "Animation"
+		testSubItem5 = menuMan.createSubMenuItem "name" subSubMenu5
+		subMenu.addItem testSubItem5 -1
+		testItem = menuMan.createActionItem ("kams_chario") "KAMs_Scripts"
+		subSubMenu5.addItem testItem -1
+		testItem = menuMan.createActionItem ("kams_ifpio") "KAMs_Scripts"
+		subSubMenu5.addItem testItem -1
+		testItem = menuMan.createActionItem ("kams_uvani") "KAMs_Scripts"
+		subSubMenu5.addItem testItem -1
+	) catch messagebox ("Error creating GTA Tools menu!\n\nYou can run scripts manually from the folder:\n" + scriptspath+"\\GTA_Tools_2026\\") title: "GTA Tools 2026"
 )
 
 utility Kams_Scripts "GTA Tools 2026" (
@@ -516,7 +542,25 @@ utility Kams_Scripts "GTA Tools 2026" (
 	)
 	
 	group "Animation" (
-		button script05 "IFP dump" width:140 align:#center tooltip:"This script is for GMax only"--offset:[0,-5]
+		button script13 "IFP IO" width:140 align:#center tooltip:"Load, edit, and export IFP animation files"
+		button script14 "UV Animation" width:140 align:#center tooltip:"Create UV sprite animations from texture atlases" offset:[0,-5]
+		button script07 "Animation Rig" width:140 align:#center tooltip:"Create and animate GTA skeleton" offset:[0,-5]
+		button script05 "IFP dump" width:140 align:#center tooltip:"This script is for GMax only" offset:[0,-5]
+	)
+	
+	on script13 pressed do (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_IFP_IO.ms")   )
+		catch messagebox "Please re-install IFP IO script!" title:"Can't find IFP IO script"
+	)
+	
+	on script14 pressed do (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_UV_ANI.ms")   )
+		catch messagebox "Please re-install UV Animation script!" title:"Can't find UV Animation script"
+	)
+	
+	on script07 pressed do (
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_AnimRig.ms")   )
+		catch messagebox "Please re-install Animation Rig script!" title:"Can't find Animation Rig script"
 	)
 			on script05 pressed do (
 				try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_IFP_dump.ms")   )

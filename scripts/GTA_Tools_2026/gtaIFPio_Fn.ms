@@ -1,3 +1,5 @@
+-- Restored ApplyAnim keyframe handling from: modding resources/kams original mse files decrypted/gtaIFPio_Fn.ms
+-- (February 2026) - Removed problematic tm==0.0 block that caused "Key index out of range" errors
 -------------
 --Import Fn--
 -------------
@@ -284,18 +286,6 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 							SAbone.rotation = rot
 							SAbone.pos = bkup
 						)
-						if tm == 0.0 then (
-							with animate on at time (tm+1) (
-								in coordsys parent (
-									bkup = SAbone.pos
-									SAbone.pos = [0,0,0]
-									SAbone.rotation = rot
-									SAbone.pos = bkup
-								)
-								deletekey SABone.rotation.controller 2
-								deletekey SABone.pos.controller 2
-							)
-						)
 						if (KeyType == 4)AND(noPOSkey==False) then (
 							if SAbone.parent != undefined then
 								in coordsys parent ( SAbone.pos = tlt )
@@ -306,12 +296,10 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 								pc.keys[tk].OutTangentType = #linear
 								pc.keys[tk].InTangentType = #linear
 							) catch()
-						) else (
-							deleteKeys SAbone.pos.controller
+						) else (	--deleteKeys SAbone.pos.controller )
 							if tm != stm then (
 								tk = numkeys SAbone.pos.controller
-								try ( deletekey SAbone.pos.controller tk
-								) catch()
+								try ( deletekey SAbone.pos.controller tk) catch()
 							)
 						)
 					)--end with animate
@@ -471,7 +459,7 @@ fn ExpsaIFP f AllObjects AnmName = (
 		
 		writeLong f (bne.rotation.controller.keys.count)
 		
-		writeLong f (getUserProp bne "BoneID")
+		writeLong f -1  -- World object animations use -1 (name matching), not bone index
 	
 		pr = bne.rotation.controller
 		--bkpr = undefined

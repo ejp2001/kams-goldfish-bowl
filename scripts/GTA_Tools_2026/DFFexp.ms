@@ -2098,7 +2098,8 @@ fn wGeometry f mshAry BonesAry MMC TUV CPV NOR Iscale SkinPlugData bodypart ver 
 	--Vertex Colors--
 	try (
 		if (bNVC == true)OR(CPV == true) then (
-			if (msh.numCPVVerts == msh.numverts) and (CPV == true) then (
+			-- Export actual vertex colors if they exist on the mesh (regardless of CPV/bNVC button state)
+			if (msh.numCPVVerts == msh.numverts) then (
 				popPrompt()
 				pushPrompt ("Export DFF: " + (objExpName as string) + " - write vc...")
 				for i = 1 to msh.numCPVVerts do (
@@ -2111,6 +2112,7 @@ fn wGeometry f mshAry BonesAry MMC TUV CPV NOR Iscale SkinPlugData bodypart ver 
 					writeByte f (vA.x  as integer) #unsigned
 				) 
 			) else (
+				-- No vertex colors on mesh, use default value
 				popPrompt()
 				pushPrompt ("Export DFF: " + (objExpName as string) + " - write vc...")
 				for i= 1 to msh.numverts do (		

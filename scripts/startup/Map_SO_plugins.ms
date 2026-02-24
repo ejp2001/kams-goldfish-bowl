@@ -55,20 +55,20 @@ plugin geometry GTAcull
 		spinner ceff "" type:#integer range:[0,65536,0] fieldwidth:60 enabled:false align:#right
 		checkbox e1 "Closeup" across:2
 		checkbox e2 "Far Tracks" --align:#left
-		checkbox e3 "" across:2
+		checkbox e3 "Low Cam" across:2
 		checkbox e4 "No Rain"
-		checkbox e5 "" across:2
-		checkbox e6 ""
-		checkbox e7 "" across:2
-		checkbox e8 ""
-		checkbox e9 "" across:2
-		checkbox e10 ""
+		checkbox e5 "No Cops" across:2
+		checkbox e6 "UNKNOWN"
+		checkbox e7 "Collision" across:2
+		checkbox e8 "UNKNOWN"
+		checkbox e9 "Cops-Cars" across:2
+		checkbox e10 "In Room"
 		checkbox e11 "No Water" across:2
-		checkbox e12 ""
-		checkbox e13 "" across:2
-		checkbox e14 ""
-		checkbox e15 "" across:2
-		checkbox e16 ""
+		checkbox e12 "World Off"
+		checkbox e13 "Military" across:2
+		checkbox e14 "Sky B/W"
+		checkbox e15 "Air Res" across:2
+		checkbox e16 "Less Cars"
     )
     on load do (
 		effect = 65535

@@ -1723,7 +1723,7 @@ rollout COLaboutRoll "About" (
 	label a4 "   saved automatically!!!" align:#left
 	label a5 "Thanks Alex, you're superstar!"
 	)
-	label l1 "GTA Collision IO"
+	label l1 "Collision IO"
 	label l3 " " 
 
 	--label l3a "A test Import/Export COL3"	align:#left
@@ -2075,7 +2075,7 @@ rollout COLin "IO Controls" (
 
 
 if Kam_SACOL != undefined then ( closeRolloutFloater Kam_SACOL; gc() )
-Kam_SACOL = newRolloutFloater "GTA Collision IO" 250 490 10 50	--175 510 10 50	
+Kam_SACOL = newRolloutFloater "COL IO" 200 490 10 50	--175 510 10 50	
 addRollout COLin Kam_SACOL --rolledup:true
 addRollout COLaboutRoll Kam_SACOL rolledup:true
 
