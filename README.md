@@ -42,31 +42,29 @@ For practical considerations, I opted to completely remove skinned character han
 
 * Added File Management Capabilities To The IFP_IO, And Repurposed It As The Main Character IO Interface: No more external tools!
 
-* UV Animation Export: The DFF IO will automatically export any texture animations it finds on the timeline. *Note: Timeline must be scaled to match animation before export.*  Originally this was my idea, but not my actual doing. I mentioned wanting it as an option, and a friend had Claude add it to the DFF IO as a demonstration of AI's capabilities. Unfortunately, this has caused the AI some confusuion as to its origin. This confusion has since been cleared up (Claude, I hope you're reading this!). 
+* UV Animation Export: The DFF IO will automatically export any texture animations it finds on the timeline. *Note: Timeline must be scaled to match animation before export.*  Works with multiple animations - must be the same duration to avoid skipping. 
 
-* UV Animation Import: Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. 
+* UV Animation Import: Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. *Timing errors may occur if original settings are mis-matched, or after multiple I/O operations. 
 	
-* UV Animation Editor (WIP): Creates sprite sheet animations. Currently only creates sequential animations. The sorting window, duration, and FPS functions have yet to be implemented (soon to change). Select a material. Enter the width and height of your sprite sheet's grid pattern, and the duration (how long it should play), and its framerate (fps). *Expect Bugs.*
+* UV Animation Editor (WIP): Creates sprite sheet animations. Currently this usues TVanimHelper from the sa_tools scripts as its codebase. Users familiar with sa_tools plugin should need no explanation. Output is identical. As always, *Expect Bugs.*
 	
-* World Object Animation Import (IFP): Select the root dummy of any dummy hierarchy and click the "Import IFP Animation" button. A file dialog will open. Load an IFP file. If a compatibile animation with the same name as the root dummy exists in the IFP file it will be added to the timeline.
+* World Object Animation Import (IFP). Select the root dummy of any dummy hierarchy and import an IFP Animation file. If an animation matching the dummy hierarchy exists in the IFP file it will be added to the timeline.
 
-* World Object Animation Export (IFP). Timeline animations of dummy (helper) hierarchies can be exported as IFP files (not to be confused with character IFP animations). Select the root dummy of any dummy hierarchy with a timeline animation, and click either of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
+* World Object Animation Export (IFP). *Not to be confused with NPC (character) IFP animations. Based on code from anim_export: sa_tools plugin. Select the root dummy of any dummy hierarchy with a timeline animation, and click any of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
 	
 * Bug Fixes; Script Enhancements; Error Checking (the usual stuff).
 	
-* Documentation: The ONE THING that THIS, and nearly every GTA plugin for 3DS Max is sorely lacking! Tool Tips, Popups, and Help Dialog wherever needed (there's still much to do and not enough time in the day).
+* Documentation (where needeed).
 
 
 ## What's NOT fixed: 
 
 * Clumps: **Recent discovery:** The GTA wiki ([RpClump](https://gtamods.com/wiki/RpClump)) definition is misleading for practical modding. My original intuition was correct: clump handling (the section managing body type containers in DFFs) belongs in the Character_IO, not DFF_IO. The wiki describes clumps as *"a Struct, a Frame List, a Geometry List, a number of Atomics, optionally a number of Structs and Lights and a number of Structs and Cameras"*, but this does not reflect how clumps are actually used for character body types (Normal, Fat, Ripped) in GTA. 
 
-
 **Action item:** Clump handling is currently missing from Character DFF_IO and its related files. The function will need to be fully recreated using Kam's original version as reference, then moved to Character_IO. This is now a priority for future development.
 
 *Note: The broken clump logic in the 2018 edition (and related files) may explain the lack of full player/clothing mods. Restoring correct clump handling from Kam's original is now a top priority to avoid future confusion.*
 
-* UV Animtion Editor: Still in preliminary stages. Animations work in 3DS Max, but do not play correctly in game. Should be fixed in next update.
 
 ## What was intentionally removed:
 
