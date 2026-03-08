@@ -314,39 +314,22 @@ fn getRootObj objArr = (
 rollout aboutRoll "About" (
 	
 	label l1 "- GTA DFF IO -" align:#center offset:[-12,8]
-	label l21_ " v2.0.1" align:#left
-	label l1_ " last upd: 01.16.26" align:#left
-	label l3 "The script can work with" align:#left offset:[0,8]
-	label s2 "  - Collision" align:#left
-	label s4 "  - Materials" align:#left
-	label s42 "  - Static models" align:#left
-	label s43 "  - Animation models" align:#left
-	label s44 "  - Vehicle models" align:#left
+	label l21_ " v2.0.3" align:#left
+	label l1_ " last upd: 03.06.26" align:#left
 	
-	label l21 " "
-	label s41 "Other script features" align:#left offset:[0,8]
-	label s5 "  - ZM Lock DFF" align:#left
-	label s6 "  - New noBack Lock DFF (by GF)" align:#left
-	label s62 "  - UV / Mesh Fix (optional)" align:#left
-	
-	label s7 "  Import / Export:" align:#left offset:[0,8]
-	label s8 "    - Prelit Day / Night" align:#left
-	label s9 "    - Vertex Alpha" align:#left
-	label s10 "    - UV1 / UV2" align:#left
-	label s11 "    - 2dfx (light)" align:#left
-	label s12 "    - Normals" align:#left
-	label s13 "    - Bump map" align:#left
-	label s14 "    - Dual map" align:#left
-	label s16 "    - Normal map (DK plugin)" align:#left
-	label s17 "    - Reflection map (DK plugin)" align:#left
-	
-	label s15 "(c) Goldfish, Kam 2020" align:#right offset:[0,0]
-	label s18 "Remixed by E2001 2026" align:#right offset:[0,0]
+	label s14 "          Based on:" align:#center
+	label s15 "Kam's GTA Scripts 2005" align:#center	
+	label s16 "and Goldfish's 2018 Edition" align:#center
+	label s17 "and various other authors." align:#center	
+	label s18 "Remixed by E2001 2026" align:#center
 
 	-- Restored: sdtl checkbox for script compatibility
 )
 
 rollout DFFinPara "Import DFF" (
+
+	label lblInfoA "For Character Animation and Export" align:#center foregroundColor:(color 180 180 255)
+	label lblInfoB "Use: Character IO" align:#center foregroundColor:(color 180 180 255)
 
 
 local fname = undefined
@@ -714,10 +697,9 @@ rollout DFFexPara "Export DFF" (
 		)
 		
 		-- START: IFP UI & handler (moved directly after Export group)
-		group "IFP Animation - Scenery Objects Only" (
+		group "IFP Animation - Scenery Objects" (
 			button IFPexpNew "Export New IFP File" width:150 tooltip:"Export hierarchy animation as new IFP file (doors, gates, world objects)" align:#center
 			button IFPexpAppend "Append To Existing IFP File" width:150 tooltip:"Add animation to existing IFP file (multiple animations per file)" align:#center
-			label IFPanimInfo1 "*Scale Timeline To Anim. Before Export*" align:#center
 		)
 
 		-- Manual IFP export handlers (inside the same rollout)
@@ -763,7 +745,7 @@ rollout DFFexPara "Export DFF" (
 		progressbar pb color:blue width:178 height:6 offset:[-8,0]
 		
 		group "Other Tools" (
-			button bModelInfo "Model chanell Info >"  tooltip:"Show UV channels, vertex colors, and mesh statistics for selected object"
+			button bModelInfo "Model channel Info >"  tooltip:"Show UV channels, vertex colors, and mesh statistics for selected object"
 		)		
 		
 		on noCOL changed state do (
@@ -1389,7 +1371,7 @@ fn checkObjL objArr = (
 							)
 						)
 					) else (MessageBox "The root object of the hierarchy can not be a LIGHT" title:"Export DFF - Selection Error")
-				) else (MessageBox "Type of material should be only \"Standart\" or \"GTA Material\"!" title:"Export DFF - Model material Error")
+				) else (MessageBox "Type of material should be only \"Standard\" or \"GTA Material\"!" title:"Export DFF - Model material Error")
 			) else (MessageBox "Error in hierarchy of light!" title:"Export DFF - Model Selection Error")
 		) else (MessageBox "Models not selected!" title:"Export DFF - Selection Error") --end
 

@@ -1,18 +1,18 @@
 -- GTA UV Sprite Animation Tool
 -- Based on TVanimationHelper from SA_TOOLS
--- Restored to original behavior by E2001 2026
 
 rollout tv_roll "" width:414 height:100
 (
 	edittext comline "" pos:[2,63] width:405 height:20
 	label lbl1 "command line" pos:[12,47] width:196 height:15
-	label lbl2 "U count" pos:[7,6] width:46 height:15
-	label lbl3 "V count" pos:[7,25] width:46 height:15
-	spinner Ucount "" pos:[57,6] width:46 height:16 range:[1,100,2] type:#integer
-	spinner Vcount "" pos:[57,26] width:46 height:16 range:[1,100,3] type:#integer
-	button go "GO" pos:[110,3] width:150 height:56
-	--bitmap bmp2 "Bitmap" pos:[5,87] width:400 height:400
-	materialButton pickmat "pick material" pos:[265,4] width:140 height:54
+	label lbl2 "U count (rows)" pos:[7,6] width:90 height:15
+	label lbl3 "V count (columns)" pos:[7,25] width:90 height:15
+	spinner Ucount "" pos:[100,6] width:46 height:16 range:[1,90,2] type:#integer
+	spinner Vcount "" pos:[100,26] width:46 height:16 range:[1,90,3] type:#integer
+	materialButton pickmat "pick material" pos:[155,4] width:120 height:54
+	button go "Create Animation" pos:[285,3] width:120 height:56
+	bitmap bmp2 "Bitmap" pos:[5,87] width:400 height:400
+	
 	
 local frames = #(), dTime = #()
 local i, j, bmap
@@ -173,6 +173,6 @@ on go pressed do
 
 -------------------------------------------------------------------------------------------------------
 
-try (closeRolloutFloater tv_flo) catch () 
-tv_flo = newRolloutFloater "tv anim helper" 425 125 20 130 
-addRollout  tv_roll tv_flo
+try (closeRolloutFloater uv_flo) catch () 
+uv_flo = newRolloutFloater "UV Animator" 425 125 20 130 
+addRollout  tv_roll uv_flo

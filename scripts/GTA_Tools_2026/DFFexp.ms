@@ -38,8 +38,32 @@ fn GetUVAnimKeys bmap = (
 		Keys_u_tiling = bmap.coords.u_tiling.keys
 		Keys_v_tiling = bmap.coords.v_tiling.keys
 		
-		AStartKey = animationRange.start
-		AEndKey = animationRange.end
+		-- Auto-detect full animation range from keyframes (ignore timeline)
+		-- This ensures we export ALL keyframes regardless of timeline settings
+		AStartKey = 1000000
+		AEndKey = -1000000
+		
+		-- Find earliest and latest keys across all 4 controllers
+		for i = 1 to Keys_u_offset.count do (
+			if Keys_u_offset[i].time < AStartKey then AStartKey = Keys_u_offset[i].time
+			if Keys_u_offset[i].time > AEndKey then AEndKey = Keys_u_offset[i].time
+		)
+		for i = 1 to Keys_v_offset.count do (
+			if Keys_v_offset[i].time < AStartKey then AStartKey = Keys_v_offset[i].time
+			if Keys_v_offset[i].time > AEndKey then AEndKey = Keys_v_offset[i].time
+		)
+		for i = 1 to Keys_u_tiling.count do (
+			if Keys_u_tiling[i].time < AStartKey then AStartKey = Keys_u_tiling[i].time
+			if Keys_u_tiling[i].time > AEndKey then AEndKey = Keys_u_tiling[i].time
+		)
+		for i = 1 to Keys_v_tiling.count do (
+			if Keys_v_tiling[i].time < AStartKey then AStartKey = Keys_v_tiling[i].time
+			if Keys_v_tiling[i].time > AEndKey then AEndKey = Keys_v_tiling[i].time
+		)
+		
+		-- If no keys found, use frame 0
+		if AStartKey == 1000000 then AStartKey = 0f
+		if AEndKey == -1000000 then AEndKey = 0f
 		
 		append AKeys AStartKey
 		append AKeys AEndKey
@@ -151,6 +175,51 @@ fn CollectUVAnimMaterials objects = (
 	)
 	
 	animMats
+)
+
+-- Detect full animation range from all materials with UV animations
+-- Returns #(startTime, endTime) or undefined if no animations
+fn DetectUVAnimationRange animMats = (
+	if animMats.count == 0 then return undefined
+	
+	local minTime = 1000000
+	local maxTime = -1000000
+	
+	for mat in animMats do (
+		local bmap = undefined
+		if classof mat == Gta_Mtl then bmap = mat.colormap
+		else if classof mat == Standard then bmap = mat.DiffuseMap
+		
+		if bmap != undefined then (
+			try (
+				local Keys_u_offset = bmap.coords.u_offset.keys
+				local Keys_v_offset = bmap.coords.v_offset.keys
+				local Keys_u_tiling = bmap.coords.u_tiling.keys
+				local Keys_v_tiling = bmap.coords.v_tiling.keys
+				
+				-- Scan all keyframes to find min/max time
+				for i = 1 to Keys_u_offset.count do (
+					if Keys_u_offset[i].time < minTime then minTime = Keys_u_offset[i].time
+					if Keys_u_offset[i].time > maxTime then maxTime = Keys_u_offset[i].time
+				)
+				for i = 1 to Keys_v_offset.count do (
+					if Keys_v_offset[i].time < minTime then minTime = Keys_v_offset[i].time
+					if Keys_v_offset[i].time > maxTime then maxTime = Keys_v_offset[i].time
+				)
+				for i = 1 to Keys_u_tiling.count do (
+					if Keys_u_tiling[i].time < minTime then minTime = Keys_u_tiling[i].time
+					if Keys_u_tiling[i].time > maxTime then maxTime = Keys_u_tiling[i].time
+				)
+				for i = 1 to Keys_v_tiling.count do (
+					if Keys_v_tiling[i].time < minTime then minTime = Keys_v_tiling[i].time
+					if Keys_v_tiling[i].time > maxTime then maxTime = Keys_v_tiling[i].time
+				)
+			) catch ()
+		)
+	)
+	
+	if minTime == 1000000 or maxTime == -1000000 then return undefined
+	return #(minTime, maxTime)
 )
 
 -- Write UV Animation Dictionary chunk (0x2B) - must be at START of file before CLUMP
@@ -2475,6 +2544,14 @@ fn DFFout f Allobjects MMC TUV CPV NOR ExSc ver SAColBase noCol addlock = (
 			gUVAnimMaterialList = CollectUVAnimMaterials Allobjects
 			if gUVAnimMaterialList.count > 0 then (
 				format "\n   [UV Animation] Detected % animated material(s)\n" gUVAnimMaterialList.count
+				
+				-- Auto-detect and set timeline to match full animation range
+				local animRange = DetectUVAnimationRange gUVAnimMaterialList
+				if animRange != undefined then (
+					animationRange = interval animRange[1] animRange[2]
+					format "   [UV Animation] Timeline set to: % to % (% frames)\n" animRange[1] animRange[2] ((animRange[2] - animRange[1]) / 1.0)
+				)
+				
 				WriteUVAnimDictionary f gUVAnimMaterialList ver
 			)
 		)
