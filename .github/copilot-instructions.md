@@ -343,6 +343,49 @@ Damage: DAMAGE_CAR_DOOR wz1_burncar1 BONNET
 - GTA Modding Wiki: https://gtamods.com
 - Original Kam's forum threads (archived)
 
+## GTA SA Collision Lighting Discovery (March 2026)
+
+**BREAKTHROUGH: Day/Night Lighting System Reverse-Engineered**
+
+The collision "Part" byte (byte 2 of TSurface) in GTA San Andreas is **NOT** a simple brightness value - it's **two 4-bit values packed together**:
+
+```
+Part byte structure: (night_brightness * 16) + day_brightness
+
+Lower 4 bits (0-15): Brightness during DAY
+Upper 4 bits (0-15): Brightness during NIGHT
+```
+
+**How it works:**
+- Characters and vehicles change brightness when stepping on collision faces
+- The game engine interpolates between day and night values based on time cycle
+- This simulates shadows under buildings, indoor lighting, streetlights, etc.
+
+**Practical examples:**
+```
+Value   Day  Night   Use Case
+  170   10    10     Constant brightness (indoor, flat outdoor)
+   15   15     0     Bright day, dark night (realistic outdoor)
+  240    0    15     Dark day, bright night (streetlights, neon)
+  200    8    12     Dimmer day, brighter night (covered areas)
+```
+
+**Tool Implementation:**
+- `GTA_COLplugin.ms` now has optional "Day/Night Lighting" mode
+- Checkbox to split Part into two separate spinners
+- UI tip: "Set both equal for constant 24-hour brightness"
+
+**Historical Note:**
+- Undocumented feature (20+ years)
+- Discovered through empirical in-game testing (March 2026)
+- Should be added to GTAModding Wiki collision format page
+
+**For GTA III/Vice City:**
+- Part byte = Vehicle body part ID (0-18: Bonnet, Boot, Doors, Wings, Windscreen)
+- No lighting system in these games
+
+---
+
 ## Questions to Ask Before Modifying
 1. Does this affect skinned character exports? (Use 2005 original version)
 2. Is this file encrypted (.mse)? (Cannot modify - use decrypted copies)

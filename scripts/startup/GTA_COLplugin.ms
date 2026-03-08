@@ -62,20 +62,26 @@ local OldSurf = #( "Standard",
 	parameters main rollout:params 
 	(
 		surface			type:#integer default:0	ui:msur
-		part					type:#integer default:0	ui:mpar
-		u1					type:#integer default:0xBB	ui:mu1
-		u2					type:#integer default:0	ui:mu2
-		surfacetext	type:#string default:"Default" ui:dsur	
-		parttext	type:#string default:"Default" ui:dpar
-		Oldsurftext	type:#string default:"Default" ui:Osur
+		part			type:#integer default:0	ui:mpar
+		u1				type:#integer default:0xBB	ui:mu1
+		u2				type:#integer default:0	ui:mu2
+		surfacetext		type:#string default:"Default" ui:dsur	
+		parttext		type:#string default:"Default" ui:dpar
+		Oldsurftext		type:#string default:"Default" ui:Osur
+		
+		-- GTA SA lighting decomposition (day/night cycle)
+		useSALight		type:#boolean default:false ui:chkSALight
+		lightDay		type:#integer default:0 ui:spnDay
+		lightNight		type:#integer default:0 ui:spnNight
+		
 		on surface set val do (
 			if val == 0 then delegate.diffuse = color 255 255 255
 			else (
 				cs = mod val 3
-		m		case cs of ( 
-				0: delegate.diffuse = color (245-val) (235-val) (225-val)
-				1: delegate.diffuse = color (235-val) (225-val) (245-val)
-				2: delegate.diffuse = color (225-val) (245-val) (235-val)
+				case cs of ( 
+					0: delegate.diffuse = color (245-val) (235-val) (225-val)
+					1: delegate.diffuse = color (235-val) (225-val) (245-val)
+					2: delegate.diffuse = color (225-val) (245-val) (235-val)
 				)
 			)
 			surfacetext = SurfAry[(val+1)]
@@ -94,16 +100,61 @@ local OldSurf = #( "Standard",
 		edittext 	dsur "" 			align:#right enabled:false 
 		label       dmyX "GTA3/VC Surface: " align:#right across:2
  		edittext 	Osur "" 			align:#right enabled:false        
-		spinner 	mpar "*Brightness/Part: " 		fieldwidth:45 type:#integer range:[-1,254,0] align:#right across:2
-		edittext 	dpar "" 			align:#right enabled:false 
+		
+		group "Part / Lighting Controls" (
+			spinner 	mpar "Part/Brightness: " 		fieldwidth:45 type:#integer range:[-1,254,0] align:#right across:2
+			edittext 	dpar "" 			align:#right enabled:false 
+			
+			label info03a "" 
+			checkbox 	chkSALight "Use GTA SA Day/Night Lighting (split into separate values)" align:#left
+			spinner 	spnDay   "  Day Brightness (0-15): " 	fieldwidth:45 type:#integer range:[0,15,0] align:#right enabled:false
+			spinner 	spnNight "  Night Brightness (0-15): " 	fieldwidth:45 type:#integer range:[0,15,0] align:#right enabled:false
+		)
+		
 		spinner 	mu1	"Unknown 1:"	fieldwidth:45 type:#integer range:[0,255,0]	align:#right across:2
 		spinner 	mu2	"Unknown 2:"	fieldwidth:45 type:#integer range:[0,255,0]	align:#right
 		label info03 ""
-		label info04 "* Brightness for buildings, as part in GTA3/VC vehicles"
-		label info05 ""
-		label info06 "Thanks ocram for helping me finish this script!"
-		label info07 "" 
-		label info08 "By Kam © Oct 2005" align:#right
+		label info04 "GTA III/VC: Part = vehicle body part (bonnet, door, etc.)"
+		label info05 "GTA SA: Part = lighting for characters/vehicles on surface"
+		label info06 "SA Lighting: Byte packed as (night*16) + day"
+		label info06b "Tip: Set both equal for constant 24-hour brightness"
+		label info07 ""
+		label info08 "Thanks ocram for helping me finish this script!"
+		label info09 "" 
+		label info10 "By Kam ï¿½ Oct 2005" align:#right
+		
+		on params open do (
+			-- Initialize control states based on current parameter values
+			spnDay.enabled = useSALight
+			spnNight.enabled = useSALight
+			mpar.enabled = not useSALight
+		)
+		
+		on chkSALight changed state do (
+			spnDay.enabled = state
+			spnNight.enabled = state
+			mpar.enabled = not state
+			if state then (
+				-- Split current part value into night + day brightness
+				spnNight.value = (mpar.value / 16) as integer
+				spnDay.value = mod mpar.value 16
+			) else (
+				-- Recompose from day/night controls back to single part value
+				mpar.value = (spnNight.value * 16) + spnDay.value
+			)
+		)
+		
+		on spnDay changed val do (
+			if chkSALight.checked then (
+				mpar.value = (spnNight.value * 16) + val
+			)
+		)
+		
+		on spnNight changed val do (
+			if chkSALight.checked then (
+				mpar.value = (val * 16) + spnDay.value
+			)
+		)
  	)
 	on create do (
 		delegate.adLock = on
@@ -132,7 +183,7 @@ plugin Material GTA_COLShadow
 		label info04 ""
 		label info05 "Thanks ocram for helping me finish this script!"
 		label info16 "" 
-		label info17 "By Kam © Oct 2005" align:#right
+		label info17 "By Kam ï¿½ Oct 2005" align:#right
  	)
 	on create do (
 		delegate.adLock = on
