@@ -813,21 +813,20 @@ utility Kams_Scripts "GTA Tools 2026" (
 	button script08 "About"  align:#left height:16 tooltip:"Authors"
 	on script08 pressed do (
 		try (DestroyDialog KAM_About) catch()
-		rollout KAM_About "Authors (c)"    (
+		rollout KAM_About "Contributors"    (
 			label about_1 "[19.12.05]" offset: [0.0,7.0,0.0]
 			label about_2 "Kam, Odie, Pioneer"
-			HyperLink l_top "Topic on the Gta Forums" align:#center   height:18 address:"http://gtaforums.com/topic/218318-rel-kams-maxscript-going-over-quick-update/" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225)
+			HyperLink l_top "Original Release - Gta Forums" align:#center   height:18 address:"http://gtaforums.com/topic/218318-rel-kams-maxscript-going-over-quick-update/" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225)
 			
-			label about_3 " -- 2018 Edition --" offset: [0.0,7.0,0.0]
-			label about_0 "[13.05.2020]"
-			label about_4 "by Goldfish"
-			label about_5 "(Goldfish-1994@yandex.ru)"
-			HyperLink l_sup "Support" align:#center   height:18 address:"https://vk.com/topic-99725313_37821803" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225) 
-			HyperLink l_vk "VK"  align:#center  height:18 address:"https://vk.com/vk.goldfish" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225)
+			label about_3 " Includes code from:" offset: [0.0,7.0,0.0]
+			label about_0 "2018 Update by Goldfish"
+			label about_4 "DexX SA Tools"
+			label about_5 "Various AI sources"
 			
 			label about_6 " -- 2026 Edition --" offset: [0.0,7.0,0.0]
-			label about_7 "[09.01.2026]"
-			label about_8 "by E2001"
+			label about_7 "Last update: 10.03.2026"
+			label about_8 "by CLAUDE"
+			label about_9 "at the direction of E2001"
 		)
 		createDialog KAM_About
 	)
