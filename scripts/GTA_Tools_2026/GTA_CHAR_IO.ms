@@ -168,14 +168,14 @@ rollout exportRoll "Export" (
 	checkbox MMC "Modulate Material Color" align:#left checked:true
 	checkbox TUV "Texture UV" align:#left checked:true
 	checkbox NOR "Normals" align:#left checked:true
-	checkbox CPV "Vertex Prelighting" align:#left checked:false
+	checkbox CPV "Vertex Lighting" align:#left checked:false
 	button savedff "Export Character DFF" width:200 height:28 align:#center tooltip:"Export skinned character model"
 	
 	-- ===========================
 	-- EVENT HANDLERS - EXPORT
 	-- ===========================
 	
-	-- Normals and Vertex Prelighting are mutually exclusive
+	-- Normals and Vertex Lighting are mutually exclusive
 	on NOR changed state do (
 		if state == true then CPV.checked = false
 	)

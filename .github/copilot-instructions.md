@@ -12,6 +12,7 @@ This repository restores and preserves **Kam's GTA Scripts (2005)** with selecti
 - References: `originals/`, `modding resources/` (cite full paths)
 - Duplicate filenames across versions - always use full paths
 - Test in-game before committing (visual checks + animation)
+- **CRITICAL: NEVER use `git checkout` or `git restore` to revert working files unless explicitly instructed by the user. This will delete uncommitted work!**
 
 ## Why this matters (short)
 - The 2005 exporter logic and the 2018 Goldfish logic are different in vertex remapping and clump handling. Using the wrong exporter for skinned characters corrupts skinning and animation data.

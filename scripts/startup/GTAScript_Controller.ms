@@ -510,9 +510,8 @@ utility Kams_Scripts "GTA Tools 2026" (
 		button script06 "Character IO" width:140 align:#center offset:[0,-5]
 		button script02 "Collision IO" width:140 align:#center offset:[0,-5]
 		button script03 "Map IO" width:140 align:#center offset:[0,-5]
-		button script12 "2dfx Editor" width:140 align:#center offset:[0,-5]
-	)
-		on script01 pressed do ( 
+)
+	on script01 pressed do ( 
 			try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find DFF IO script"
 	)		
@@ -536,15 +535,25 @@ utility Kams_Scripts "GTA Tools 2026" (
 		catch messagebox "Please re-install my Map IO script!" title:"Can't find Map IO script"
 	)
 	
-	on script12 pressed do ( 
-		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_2DFX_IO.ms")   )
-		catch messagebox "Please re-install my 2dfx Editor script!" title:"Can't find 2dfx Editor script"
+	on script12a pressed do ( 
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\2dfx_light_editor.ms")   )
+		catch messagebox "Please re-install 2dfx Light Editor script!" title:"Can't find 2dfx Light Editor script"
+	)
+	
+	on script12b pressed do ( 
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\2dfx_particle_editor.ms")   )
+		catch messagebox "Please re-install 2dfx Particle Editor script!" title:"Can't find 2dfx Particle Editor script"
+	)
+	
+	on script12c pressed do ( 
+		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\2dfx_attractor_editor.ms")   )
+		catch messagebox "Please re-install 2dfx Attractor Editor script!" title:"Can't find 2dfx Attractor Editor script"
 	)
 	
 	group "Animation" (
 		button script13 "IFP IO" width:140 align:#center tooltip:"Load, edit, and export IFP animation files"
 		button script14 "UV Animation" width:140 align:#center tooltip:"Create UV sprite animations from texture atlases" offset:[0,-5]
-		button script07 "Animation Rig" width:140 align:#center tooltip:"Create and animate GTA skeleton" offset:[0,-5]
+
 		button script05 "IFP dump" width:140 align:#center tooltip:"This script is for GMax only" offset:[0,-5]
 	)
 	
@@ -558,54 +567,18 @@ utility Kams_Scripts "GTA Tools 2026" (
 		catch messagebox "Please re-install UV Animation script!" title:"Can't find UV Animation script"
 	)
 	
-	on script07 pressed do (
-		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_AnimRig.ms")   )
-		catch messagebox "Please re-install Animation Rig script!" title:"Can't find Animation Rig script"
-	)
-			on script05 pressed do (
+	on script05 pressed do (
 				try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_IFP_dump.ms")   )
 			catch messagebox "Please re-install my IFP IO script!" title:"Can't find Animation IO script"
 		)
-	
-	on script11 pressed do (
-		local dffPath = getopenfilename caption:"Select DFF to Analyze" types:"DFF Files (*.dff)|*.dff|All Files (*.*)|*.*|"
-		if dffPath != undefined then (
-			try (
-				fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_Editor.ms")
-				OpenDFFEditor dffPath
-			) catch (
-				messagebox ("Failed to load DFF Editor:\n" + (getCurrentException())) title:"Error"
-			)
-		)
-	)	
 
 	group "Tools" (
-		button script11 "DFF Binary Editor" width:140 align:#center
-		button script04 "Prelite Tools" width:140 align:#center 
-		button script07_ "Align pivot to center" width:140 align:#center
-		button script09 "Vehicle Scale Helper" width:140 align:#center
-	)	
-
-
-		on script09 pressed do (
-			try fileIn (scriptspath+"\\GTA_Tools_2026\\tools\\Vehicle_Scale_Helper.ms")
-		catch messagebox "Error!" title:"Can't run script"
+		button script04 "Prelite Tools" width:140 align:#center
+		button script12a "2dfx Light" width:140 align:#center
+		button script12b "2dfx Particle" width:140 align:#center
+		button script12c "2dfx Attractor" width:140 align:#center
 	)
-	
-	on script07_ pressed do ( 
-		if $selection.count > 0 then (
-			clearListener()
-			format "Fix pivots started:\n"
-			for obj in $selection  do (
-				if superclassof obj == GeometryClass then (
-					CenterPivot obj
-					ResetXForm obj
-					convertToPoly obj
-					format "[Fixed] %\n" obj.name
-				) else format "[no Fixed] % - is not a geometry\n" obj.name
-			)
-		) else messagebox "Models Not Selected!" title: "Align pivot - error"
-	)	
+
 	on script04 pressed do (
 		try (DestroyDialog G_PrelitTools) catch()
 		rollout G_PrelitTools "Prelit Tools"  (

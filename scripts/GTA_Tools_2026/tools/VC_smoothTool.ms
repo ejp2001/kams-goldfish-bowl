@@ -164,7 +164,7 @@ rollout ro_average_map_vertex "VC Smooth Tool v 1.0"
 							msg = "Unknown error!\nLast obj: " + getCurrentException() 
 							messagebox msg title: "VC Smooth Too: error"
 						)
-					)else messagebox "All objects must have VC and NVC Prelit!" title: "VC Smooth Too: Warning"
+				)else messagebox "All objects must have Vertex Colors (VC) and Night Vertex Colors (NVC)!" title: "VC Smooth Too: Warning"
 				)else messagebox "Select Editable Poly objects!" title: "VC Smooth Too: Warning"
 			)else messagebox "Select 2 or more objects" title: "VC Smooth Too: Warning"
 	)--on btn_average pressed do

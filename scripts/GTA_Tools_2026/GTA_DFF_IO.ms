@@ -676,7 +676,7 @@ rollout DFFexPara "Export DFF" (
 	
 	group "Vertex Color:" (
 		checkbutton NOR "Normals"  width:48  highlightcolor:(color 0 189 0) tooltip:"Export vertex normals for smooth shading (increases file size)"  across:3 offset:[-4,0]		
-		checkbutton CPV "DAY" width:54  highlightcolor:(color 0 189 0) tooltip:"Export prelit vertex colors for daytime lighting" offset:[-4,0] checked:true
+		checkbutton CPV "DAY" width:54  highlightcolor:(color 0 189 0) tooltip:"Export day vertex colors for lighting" offset:[-4,0] checked:true
 		checkbutton _bNVC "NIGHT" width:54  highlightcolor:(color 0 189 0) tooltip:"Export night vertex colors (SA only, mutually exclusive with Normals)" offset:[2,0] checked:true	
 		label textPrelit "Default:" align:#left  across:3 
 		spinner VCdef "VC" type:#integer range:[0,255,80]  fieldwidth:30  offset:[-8,0] tooltip:"Default day color brightness (0-255) if not painted"
