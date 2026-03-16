@@ -23,6 +23,67 @@ Installation and usage:
 * Copy the entire contents of the scripts folder to your "3DS_MAX_INSTALLATION/scripts" folder.
 	
 * Try not to hurt yourself.
+
+
+## Practical Asset-Type Rules
+
+These tools deal with file formats that look shared on paper, but behave differently in practice. The safest way to think about them is by asset type, not by extension alone.
+
+### Character vs. Scenery vs. Vehicle
+
+* Character, Scenery, and Vehicle assets should be treated as three separate workflows, even when they use the same `.dff` or `.ifp` container formats.
+
+* Character models have separate export/import requirements from scenery and vehicles. If a model uses Skin, BoneID-driven character logic, or character-style hierarchy/animation handling, use Character IO.
+
+* Scenery and Vehicle models currently share the DFF IO interface, but that does **not** mean they follow identical rules internally.
+
+### Materials
+
+* GTA Materials are mainly useful for Vehicles. They can be used on Characters or Scenery, but they tend to look worse in the viewport and are not reliable for everyday authoring there.
+
+* If simplifying the toolset, GTA Materials should be considered Vehicle-editor features first.
+
+### UV Animations
+
+* UV animations belong primarily to the Scenery workflow.
+
+* Vehicles may also be able to use UV animation in some cases, but that loading path is not yet well understood or documented. Treat vehicle UV animation as experimental until proven otherwise.
+
+### Vehicle Animation Assumptions
+
+* Vehicle animations are not yet fully mapped out in this project.
+
+* The current working assumption is that vehicle animations are more likely to be object/hierarchy-driven than character-style IFP behavior, especially for engine parts synchronized to RPM.
+
+* Vehicle-specific animation behavior may involve data embedded in the DFF itself, not just external IFP files.
+
+### Embedded Collision And Shadow Data
+
+* Embedded collision and shadow data inside a DFF is a Vehicle-only concept for GTA San Andreas.
+
+* Vehicles are also the only asset class where collision and shadow meshes are stored in the `.dff` itself. Attempting to put embedded vehicle-style collision/shadow data in Character or Scenery DFFs can crash the game.
+
+* Shadow Meshes are normally stored inside collision data (`.col`), not as a separate generic DFF feature.
+
+* For vehicle export, the collision source may be either:
+	* a `.col` file, or
+	* a vehicle `.dff` that already contains the appended collision payload.
+
+* If using a `.col` file as the vehicle collision source, it must contain exactly one collision model and one shadow mesh, plus however many spheres and boxes belong to that model.
+
+* Multi-model `.col` archives are not valid as a vehicle embedded-collision source.
+
+### IFP Archive Editing
+
+* IFP files behave more like small animation archives than single animation files. Editing them carelessly can create corruption that is not obvious until later.
+
+* The well-known SA IFP "EOF bug" is usually not a true end-of-file bug. It is typically caused by appending new animation data at the physical end of the file instead of the logical animation-data end stored in the header.
+
+* For ANP3/SA IFPs, the logical append point is `fileLength + 8`, using the header's stored file length.
+
+* If an appended animation seems to exist in the bytes but does not appear in the file properly, verify:
+	* the logical file length was rewritten correctly, and
+	* the animation count was updated at the correct ANP3 header offset.
 	
 
 ## What's fixed:

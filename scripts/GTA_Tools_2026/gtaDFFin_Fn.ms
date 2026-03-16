@@ -1,4 +1,4 @@
---15Dec05--
+--25Jan04 7:28pm--
 
 --fns should be hidden--
 ------------------------
@@ -17,9 +17,8 @@ fn Byte2char thisbyte = (
 	t = thisbyte - 31
 	if t > 91 then t = 4
 	return char[t]
-)
---end fn Byte2char			--<A1>--
---
+)--end fn Byte2char			--<A1>--
+
 fn stripSpace str = (
 	local tmp = ""
 	for i = 1 to str.count do (
@@ -27,9 +26,8 @@ fn stripSpace str = (
 		else tmp += substring str i 1
 	)--end for i
 	return tmp
-)
---end fn stripSpace		--<A2>--
---
+)--end fn stripSpace		--<A2>--
+
 fn RestoreSpace str = (
 	local tmp = ""
 	for i = 1 to str.count do (
@@ -37,16 +35,15 @@ fn RestoreSpace str = (
 		else tmp += substring str i 1
 	)--end for i
 	return tmp
-)
---end fn RestoreSpace		--<A3>--
---
+)--end fn RestoreSpace		--<A3>--
+
 --C---------------
 -- Clump Functions
 ------------------
 struct GTA3frame ( 
 	transform, parentID, unknown, name, obj, boneID		--unknown -> Coords Reference?? 0:special 3:parent 0x020003:world
 )
---
+
 fn WhichRWver f = (
     local bkup = (ftell f) 
     fseek f 0 #seek_set
@@ -57,9 +54,8 @@ fn WhichRWver f = (
 	format "This File is RW Version : 3.%.%.%\n" (b2/4) (b1/16) ((mod b1 8) as integer)
     fseek f bkup #seek_set
 	return (b2*0x1000000 + b1*0x10000 + bb)
-)
---end fn WhichRWver		--<C1>--
---
+)--end fn WhichRWver		--<C1>--
+
 fn CheckZmodLock f = (
 	Zmodlocked = false
 	fseek f 0 #seek_set
@@ -69,7 +65,8 @@ fn CheckZmodLock f = (
 		try (
 			while loop == true do (
 				fseek f ((readLong f) + 4) #seek_cur
-				--mult-clump check--
+--*ew Edit--
+--mult-clump check--
 				headerID = readLong f
 				case headerID of (
 					0xF21E: (
@@ -88,15 +85,15 @@ fn CheckZmodLock f = (
 						loop = false
 					)
 					default: ()
-				)--end case
+				)
+--**
 			)--end while
 		) catch()
 	)--end if/else	
 	fseek f 0 #seek_set
 	return Zmodlocked
-)
---end fn CheckZmodLock		--<C3>--
---
+)--end fn CheckZmodLock		--<C3>--
+
 fn checkClump f = (
 	if LetsRockandRoll != true then 
 		if  (CheckZmodLock f ) == true then return undefined
@@ -122,17 +119,15 @@ fn checkClump f = (
     )--end while
 	fseek f 0 #seek_set
     return clumpary
-)
---end fn checkClump		--<C2>--
---
+)--end fn checkClump		--<C2>--
+
 --0---------------------------
 -- Functions for Bones & Skins
 ------------------------------
 struct BoneStruct (
 	boneID, boneIndex, boneType
 )
---
---05Oct05 Bone created in rHAnimPLG and return bone object with BoneID in userprop
+
 fn rHAnimPLG f string_length = (
 	if (readLong f) != 256 then (
 		format "Error in HAnim PLG(0x11E): %[%] skipped\n" i (ftell f)
@@ -140,35 +135,27 @@ fn rHAnimPLG f string_length = (
 		fseek f skip #seek_cur
 		return undefined
 	) else (
-		FrameboneID = readLong f
+		FrameboneID = readLong f #unsigned
 		Bone_Count = readLong f #unsigned
-		
-		if FrameboneID == -1 then ( return undefined )
-		
-		--GTAbone = bone showlinks:true
-		GTAbone = dummy boxsize:([0,0,0] ) wirecolor:yellow showlinks:true
-		setUserProp GTAbone "BoneID" FrameboneID
-        GTAbone.showLinksOnly = true
-		
-		if Bone_Count == 0 then return GTAbone
+		if Bone_Count == 0 then return FrameboneID
 		else (
 			readLong f;readLong f						--Unknown, always 0 36
-			BoneDataAry = #()
+			BoneAry = #()
 			for j = 1 to Bone_Count do (
-				BoneDataAry[j] = BoneStruct()
-				BoneDataAry[j].boneID = readLong f #unsigned
-				BoneDataAry[j].boneIndex = readLong f #unsigned
-				BoneDataAry[j].boneType = readLong f #unsigned
-			) 
-			return #(GTAbone, BoneDataAry)
+				BoneAry[j] = BoneStruct()
+				BoneAry[j].boneID = readLong f #unsigned
+				BoneAry[j].boneIndex = readLong f #unsigned
+				BoneAry[j].boneType = readLong f #unsigned
+			)
+			return #(FrameboneID, BoneAry)
 		)--end if/else FrameboneID
 	)--end if const
-)
---end fn rHAnimPLG			--<B1>--
---
---06Oct05 return vertsarray weightarray ibm specialunknown
+)--end fn rHAnimPLG			--<B1>--
+
+
 fn rSkinPLG f data_length Vert_count ver = (
 
+--here = ftell f
 	dataEND = (ftell f) + data_length
 
 	bvAry = #()
@@ -176,10 +163,9 @@ fn rSkinPLG f data_length Vert_count ver = (
 
 	bone_count = readByte f #unsigned
 	sp_count = readByte f #unsigned
-	SPunknown = readByte f			--unknown??
-	readByte f						--unknown??
+	readByte f;readByte f						--unknown??
 
-	if DebugMode == true then format "Here:%\tdata length:%\tEnd Add:%\tvert_count:%\nBones:%\tSP:%\tunknown:%\n" here data_length dataEND Vert_count bone_count sp_count SPunknown
+format "Here:%\tdata length:%\tEnd Add:%\tvert_count:%\tBones:%\tSP:%\n" here data_length dataEND Vert_count bone_count sp_count
 
 	if sp_count != 0 then (
 		for i = 1 to sp_count do readByte f		--What is this??
@@ -216,41 +202,51 @@ fn rSkinPLG f data_length Vert_count ver = (
 		)
 		append bwAry bw
 	)--end for j
-
-	--Read IBM--
-	if DebugMode == true then format "IBM start here(%)  bones:%\n" (ftell f) bone_count 
-	global ibm = #()
-	for i = 1 to bone_count do (
-		if ver != 0x1803FFFF then (
-			constDEAD = readLong f
-			if DebugMode == true then format ": % :: " constDEAD
+--New Edit(06Jul05)(15Jul05)--**
+		--Read IBM--
+		if DebugMode == true then format "IBM start here(%)  bones:%\n" (ftell f) bone_count 
+		global ibm = #()
+		for i = 1 to bone_count do (
+			if ver != 0x1803FFFF then (
+                constDEAD = readLong f
+                if DebugMode == true then format ": % :: " constDEAD
+--format ">1\n"
+			)
+			m1 = [(readFloat f),(readFloat f),(readFloat f)]
+			u1 =  (readLong f)
+			if DebugMode == true then format "%, " u1
+			m2 = [(readFloat f),(readFloat f),(readFloat f)]
+			u2 = (readLong f)
+			if DebugMode == true then format "%, " u2
+			m3 = [(readFloat f),(readFloat f),(readFloat f)]
+			u3 = (readLong f)
+			if DebugMode == true then format "%, " u3
+			m4 = [(readFloat f),(readFloat f),(readFloat f)]
+			u4 = (readLong f)
+			if DebugMode == true then format "%\n" u4
+			append ibm  (matrix3  m1 m2 m3 m4)
+--format "<%>\n" i
 		)
-		m1 = [(readFloat f),(readFloat f),(readFloat f)]
-		u1 =  (readLong f)
-		if DebugMode == true then format "%, " u1
-		m2 = [(readFloat f),(readFloat f),(readFloat f)]
-		u2 = (readLong f)
-		if DebugMode == true then format "%, " u2
-		m3 = [(readFloat f),(readFloat f),(readFloat f)]
-		u3 = (readLong f)
-		if DebugMode == true then format "%, " u3
-		m4 = [(readFloat f),(readFloat f),(readFloat f)]
-		u4 = (readLong f)
-		if DebugMode == true then format "%\n" u4
-		append ibm  (matrix3  m1 m2 m3 m4)
-	)--end for i
-	if ver == 0x1803FFFF then ( 
-		if DebugMode == true then format ":: [%, %, %]\n" (readFloat f) (readFloat f) (readFloat f) 
-		else ( for tt = 1 to 3 do (readFloat f)  )
-	)
-	if (ftell f) != dataEND then (
-		format "\n>> error in reading Invert Bone Matrics :[%]<<(%)\n\n" dataEND (ftell f)
-		fseek f dataEND #seek_set
-	)
-	return #(bvAry,bwAry,ibm,SPunknown)
-)
---end fn rSkinPLG			--<B2>--
---
+		if ver == 0x1803FFFF then ( 
+			if DebugMode == true then format ":: [%, %, %]\n" (readFloat f) (readFloat f) (readFloat f) 
+			else ( (readFloat f);(readFloat f);(readFloat f) )
+        )
+		if (ftell f) != dataEND then (
+            format "\n>> error in reading Invert Bone Matrics :[%]<<(%)\n\n" dataEND (ftell f)
+            fseek f dataEND #seek_set
+        )
+	--) else (
+	--	skipbyte = dataEND - (ftell f)
+	--	fseek f skipbyte #seek_cur
+	--)
+--**
+	return #(bvAry,bwAry)
+)--end fn rSkinPLG			--<B2>--
+
+
+
+
+
 --1-----------------------
 -- Functions for Import --
 --------------------------
@@ -259,13 +255,16 @@ fn rClump f showdetail = (
 	local Clumpsize = readLong f #unsigned
 	if showdetail == true then (
 		rVer = WhichRWver f
+		--if rVer != 134283263 then format ">>>Non standard GTA3 version!!<<<\n"
 		format "\nClump(16) Size: %\n" Clumpsize
 		format "\t->Version: %\n" rVer
 		readLong f
 	) else rVer = readLong f #unsigned
 	if readLong f != 1 then ( format "Error in Clump Data\n"; exit )
 	local Data_length = (readLong f)/4
+--New Edit(13Jul05)--**
 	ver = readLong f
+--**
 	object_count = readLong f
 	if showdetail == true then format "\t->Object Count: %\n" object_count
 	if Data_length > 1 then (
@@ -274,11 +273,13 @@ fn rClump f showdetail = (
 			if showdetail == true then format "\t->??: %\n" tmp
 		)--end for i
 	)
+--New Edit(13Jul05)--**
 	return #(object_count,ver)
-)
---end fn rClump			--<i1>--
---
-fn rFrameList f Iscale showdetail = (
+--**
+)--end fn rClump			--<i1>--
+
+
+fn rFrameList f Iscale showdetail = (					--03Dec04 11:55am--
 	if (readLong f) != 14 then ( format "Error in FrameList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\tFrameList(14) Size: %\n" tmp
@@ -289,7 +290,7 @@ fn rFrameList f Iscale showdetail = (
 	frame_count = readLong f
 	if showdetail == true then format "\t\t->Frame Count:%\n" frame_count
 	frameAry = #()
-	BoneDataAry = undefined
+	BoneAry = undefined
 	for i = 1 to frame_count do (
 		frameAry[i] = GTA3frame()
 		frameAry[i].transform = matrix3 [(readFloat f),(readFloat f),(readFloat f)] [(readFloat f),(readFloat f),(readFloat f)] [(readFloat f),(readFloat f),(readFloat f)] [((readFloat f) * Iscale),((readFloat f) * Iscale),((readFloat f) * Iscale)]
@@ -318,10 +319,14 @@ fn rFrameList f Iscale showdetail = (
                     286: (
 						if showdetail == true then format "\t\t->Bones Data(286): size: %\n" string_length
 						tmp = rHAnimPLG f string_length
-						if classof tmp == Array then (
-							BoneDataAry = tmp[2]
-                            frameAry[i].obj = tmp[1]
-						) else (frameAry[i].obj = tmp)
+--New Edit(06Jul05)(07Jul05)--**
+						try (
+							BoneAry = tmp[2]
+							--if ver == 0x1803FFFF then frameAry[1].boneID = tmp[1]
+							--else 
+                            frameAry[i].boneID = tmp[1]
+						) catch (frameAry[i].boneID = tmp)
+--**
 					)
 					default: (
 						if showdetail == true then format "\t\t->unknown(%) size: %\n" header string_length
@@ -329,28 +334,18 @@ fn rFrameList f Iscale showdetail = (
 					)
                 )--end case of
 			)--end while		
+--New Edit(06Jul05)(13Jul05)--**
 		) else ( 
-			-- Leave name undefined if no extension data
-			-- Geometry name will be assigned later from mesh data
-			frameAry[i].name = undefined
+			if ver == 0x1803FFFF then ( 
+				frameAry[i].name = "Root"
+            )
 		) --end if/else
+--**
 	)--end for i
+	return #(frameAry,BoneAry)
+)--end fn rFrameList		--<i2>--
 
-	if (BoneDataAry != undefined) then (
-		for i = 1 to frameAry.count do (
-			if classof frameAry[i].obj == dummy then ( --bone then (	
-				tmp = for b in BoneDataAry where b.boneID == (getUserProp FrameAry[i].obj "BoneID") collect b
-				setUserProp (frameAry[i].obj) "BoneType" tmp[1].boneType
-				setUserProp (frameAry[i].obj) "BoneIndex" tmp[1].boneIndex
-			)--end if bone
-		)--end for
-	)--end BoneDataAry
-
-	return frameAry
-)
---end fn rFrameList		--<i2>--
---
---Read rwLight after Atomic--**
+--New Edit(15Jul05)--**
 fn rExtra f showdetail = (
     dataleng =  readLong f
     readlong f                  --ver
@@ -371,6 +366,7 @@ fn rExtra f showdetail = (
 		readLong f						--fallof
 		readShort f						--type
 		readShort f						--light type
+--format "here%\n" (ftell f)
 		readLong f						--extension(0x03)
 		extleng = readLong f
 		readLong f						--ver
@@ -379,14 +375,16 @@ fn rExtra f showdetail = (
     ) else fseek f (4 + (readLong f)) #seek_cur
     retuen undefined
 )
---end fn rExtra
---
+--**
+
 fn rAtomic f showdetail = (
+--New Edit(15Jul05)--**
     section = readLong f
     if section == 1 then ( return rExtra f showdetail )
 	if section != 20 then ( format "Error in Atomic\n"; exit )
-	atmsize = (readLong f #unsigned)
-	if showdetail == true then format "\tAtomic(20) Size: %\n" atmsize
+--**
+	tmp = (readLong f #unsigned)
+	if showdetail == true then format "\tAtomic(20) Size: %\n" tmp
 	readLong f		--Version
 	if readLong f != 1 then ( format "Error in Atomic Data\n"; exit )
 	readLong f      --Data length (should be 16)
@@ -423,10 +421,10 @@ fn rAtomic f showdetail = (
 					 )
 		)--end case
 	)--end while
-	return #(frame_index, Geometry_index, 0, atmsize)
-)
---end fn rAtomic			--<i3>--
---
+	return #(frame_index, Geometry_index)
+)--end fn rAtomic			--<i3>--
+
+
 fn rGeometryList f showdetail = (
 	if (readLong f) != 26 then ( format "Error in GeometryList\n"; exit )
 	tmp = (readLong f #unsigned)
@@ -438,10 +436,10 @@ fn rGeometryList f showdetail = (
 	geometry_count = readLong f
 	if showdetail == true then format "\t\t->Geometry Count:%\n" geometry_count
 	return geometry_count
-)
---end fn rGeometryList		--<i4>--
---
-fn rMaterialSplit thismesh file showdetail = (
+)--end fn rGeometryList		--<i4>--
+
+
+fn rMaterialSplit thismesh file showdetail = (		--22Dec04 9:06pm--
 	SplitType = ReadLong file
 	split_count = ReadLong file
 	Face_Index_count = ReadLong file
@@ -476,13 +474,12 @@ fn rMaterialSplit thismesh file showdetail = (
 				tpt = [a1,a2,a3]
 				aaa = finditem tary tpt
 				--shit zmod2 faces index changed(12Aug08)--
-				-- BYPASS: Non-standard DFF check disabled for compatibility
-                -- if (aaa == 0)AND(LetsRockandRoll != True) then (
-				--	delete thismesh
-				--	if showdetail == true then clearlistener()
-				--	messagebox "This is a Non-Standard DFF !" title:"Import Aborted"
-				--	return undefined
-                -- )
+                if (aaa == 0)AND(LetsRockandRoll != True) then (
+					delete thismesh
+					if showdetail == true then clearlistener()
+					messagebox "This is a Non-Standard DFF !" title:"Import Aborted"
+					return undefined
+                )
 				if aaa == 0 then (
 					tpt = [a2,a1,a3]
 					aaa = finditem tary tpt
@@ -541,10 +538,10 @@ fn rMaterialSplit thismesh file showdetail = (
 		else format "\n"
 	)
    return thismesh
-)
---end fn ReadrwMaterialSplit	--<i5>--
---
-fn rTexture f mtl texEx showdetail = (
+)--end fn ReadrwMaterialSplit	--<i5>--
+
+
+fn rTexture f mtl texEx showdetail = (					-- 03Dec04 11:55am --
 	if (readLong f) != 6 then ( format "Error in Texture\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\t\t\tTexture(6) Size: %\n" tmp
@@ -556,37 +553,43 @@ fn rTexture f mtl texEx showdetail = (
 	--diffuse texture--
 	if (readLong f) != 2 then ( format "Error in Texture String1\n"; exit )
 	string_length = readLong f
+--New Edit (08Aug05)--**
 	readLong f		--Version
     endtex = (ftell f) + string_length
+--	local here = ftell f
 	DTex = readString f
+--	skip = string_length - DTex.count - 1
+--	fseek f skip #seek_cur
     fseek f endtex #seek_set
+--**
 	if DTex != "" then (
-    
---if DebugMode == true then mtlflag[1] = true
-
+--New Edit(06Jul05)--**
 		if classof mtl == GTA_Mtl then (
 			mtl.colormap = bitmaptexture name:DTex filename:(DTex+texEx)
 			df = mtl.colormap
 		) else (
 			mtl.diffusemap = bitmaptexture name:DTex filename:(DTex+texEx)
-			showTextureMap mtl mtl.diffusemap true
-			df = mtl.diffusemap
+			mtl.diffusemapAmount = 90
+			df =   mtl.diffusemap
 		)    
 		if TexFlag == 0x106 then df.filtering = 0
 		if TexFlag == 0x10102 then df.filtering = 1
 		if TexFlag == 0x10101 then df.filtering = 2
+--**
 	)
 	--mask texture--
 	if (readLong f) != 2 then ( format "Error in Texture String2\n"; exit )
 	string_length = readLong f
 	readLong f		--Version
+--New Edit (08Aug08)--**
     endtex = (ftell f) + string_length
+--	local here = ftell f
 	MTex = readString f
+--	skip = string_length - MTex.count - 1
+--	fseek f skip #seek_cur
     fseek f endtex #seek_set
 	if MTex != "" then (
-
---if DebugMode == true then mtlflag[2] = true
-
+--New Edit(06Jul05)--**
 		if classof mtl == GTA_Mtl then (
 			mtl.alphamap = bitmaptexture name:DTex filename:(DTex+texEx)
 			df = mtl.alphamap
@@ -597,9 +600,7 @@ fn rTexture f mtl texEx showdetail = (
 		if TexFlag == 0x106 then df.filtering = 0
 		if TexFlag == 0x10102 then df.filtering = 1
 		if TexFlag == 0x10101 then df.filtering = 2
-		try (
-			df.rgbOutput = 1
-		) catch()
+--**
 	)
 	if showdetail == true then format "\t\t\t\t\t\t->Texture: %\tMask: %\n" DTex MTex
 	if (readLong f) != 3 then ( format "Error in Texture Extension\n"; exit )
@@ -607,10 +608,10 @@ fn rTexture f mtl texEx showdetail = (
 	readLong f		--Version 
 	if TExt_length != 0 then fseek f TExt_length #seek_cur
 	return mtl
-)
---end rTexture				--<i6>--
---
-fn rMaterial f mattype texEx showdetail = (
+)--end rTexture				--<i6>--
+
+
+fn rMaterial f texEx showdetail = (						-- 03Dec04 11:55am --
 	if (readLong f) != 7 then ( format "Error in Material\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\t\tMaterial(7) Size: %\n" tmp
@@ -624,16 +625,14 @@ fn rMaterial f mattype texEx showdetail = (
 	colB = readByte f #unsigned
 	colA = readByte f #unsigned
 	if showdetail == true then format "\t\t\t\t\t->RGBA: %, %, %, %\n" colR colG colB colA
+--New Edit (06Jul05)--**
 	readLong f		--unknown?? 1629836
 	texture_count = readLong f
-	
-if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
-
 	Gamb = readFloat f
     Gspc = readFloat f
     Gdif = readFloat f
-	gtaMatFlag = true
-	if (mattype == 1) and (GTA_Mtl != undefined) then (
+	if GTA_Mtl != undefined then (
+--format "GTA Material\n"
 		mtl = GTA_Mtl()
 		mtl.color = color colR colG colB
 		mtl.alpha = colA
@@ -641,11 +640,7 @@ if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
 		mtl.spc = Gspc
 		mtl.dif = Gdif
 		mtl.specular = color 0 0 0
-
-if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
-
 	) else (
-		gtaMatFlag = false
 		mtl = StandardMaterial()
 		mtl.glossiness = 0
 		mtl.soften = 0
@@ -656,19 +651,9 @@ if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
 		mtl.opacity = (colA/255.0 * 100) as integer
 		mtl.specular_level = Gspc *100
 	)
+--**
 	for i = 1 to texture_count do (
 		rTexture f mtl texEx showdetail
-	)
-	
-	-- Name material after diffuse texture if present
-	if isKindOf mtl GTA_Mtl then (
-		if mtl.colormap != undefined and classof mtl.colormap == Bitmaptexture then (
-			mtl.name = mtl.colormap.name
-		)
-	) else (
-		if mtl.diffusemap != undefined and classof mtl.diffusemap == Bitmaptexture then (
-			mtl.name = mtl.diffusemap.name
-		)
 	)
 
 	if (readLong f) != 3 then ( format "Error in Material Extension[Pos: %]\n" (ftell f); exit )
@@ -676,6 +661,8 @@ if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
 	readLong f		--Version	
         
 	if MExt != 0 then (
+	--	local MExt_end = (ftell f) + MExt
+ 
 		local Loop_end = (ftell f) + MExt
         while (ftell f) < Loop_end do (
 			local header = readLong f
@@ -687,9 +674,6 @@ if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
 					MExt_end = (ftell f) + tmpsize
  					if showdetail == true then format "\t\t\t\t\tMaterial Effect(288) Size: %\n" tmpsize
     				if tmpsize >= 24 then (
-
-if DebugMode == true then mtlflag[3] = true
-
 						ReadLong f; ReadLong f	--unknown?? 2 2
 						if classof mtl == GTA_Mtl then (
 							mtl.reflection = (Readfloat f) * 100
@@ -718,9 +702,6 @@ if DebugMode == true then mtlflag[3] = true
 					if showdetail == true then format "\t\t\t\tSA RefMat(%) Size: %\n" header tmpsize
 					if tmpsize != 24 then fseek f tmpsize #seek_cur
 					else (
-
-if DebugMode == true then mtlflag[5] = true
-
 						sr = (readFloat f) * 255
 						sg = (readFloat f) * 255
 						sb = (readFloat f) * 255
@@ -748,9 +729,6 @@ if DebugMode == true then mtlflag[5] = true
 					else mtl.specular_level = spwr
 					mtl.specularmap = bitmaptexture name:slTex filename:(slTex+texEx)
 					fseek f MExt_end #seek_set
-
-if DebugMode == true then mtlflag[4] = true
-
 				)
 				default: (
 					if showdetail == true then format "\t\t\t\tunknown(%) Size: %\n" header tmpsize
@@ -761,15 +739,12 @@ if DebugMode == true then mtlflag[4] = true
             
 	)--end if MExt
 
-	-- Enable material display in viewport
-	mtl.showInViewport = true
-
 	return mtl
     
-)
---end fn rMaterial			--<i7>--
---
-fn rMaterialList f mattype texEx showdetail = (
+)--end fn rMaterial			--<i7>--
+
+
+fn rMaterialList f texEx showdetail = (					-- 03Dec04 11:55am --
 	if (readLong f) != 8 then ( format "Error in MaterialList\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\t\tMaterialList(8) Size: %\n" tmp
@@ -780,18 +755,18 @@ fn rMaterialList f mattype texEx showdetail = (
 	material_count = readLong f
 	if showdetail == true then format "\t\t\t\t->Material Count:%\n" material_count
 	for i = 1 to material_count do (readLong f #unsigned)
-    if material_count == 1 then thismtl = rMaterial f mattype texEx showdetail
+    if material_count == 1 then thismtl = rMaterial f texEx showdetail
     else (
         thismtl = MultiMaterial numsubs:material_count
     	for i = 1 to material_count do (
-	    	thismtl[i] = rMaterial f mattype texEx showdetail
+	    	thismtl[i] = rMaterial f texEx showdetail
 	    )
     )--end if/else
     return thismtl
-)
---end fn rMaterialList		--<i8>--
---
-fn rGeometry f Iscale mattype texEx showdetail = (
+)--end fn rMaterialList		--<i8>--
+
+
+fn rGeometry f Iscale texEx showdetail checklock = (					-- 03Dec04 11:55am --
 	if (readLong f) != 15 then ( format "Error in Geometry\n"; exit )
 	tmp = (readLong f #unsigned)
 	if showdetail == true then format "\t\tGeometry(15) Size: %\n" tmp
@@ -810,7 +785,6 @@ fn rGeometry f Iscale mattype texEx showdetail = (
             --      32  Light
             --      64  Modulate Material Color
             --      128 Textured2 ??
-
     readByte f      --unknown?? always 0
 	t2count = readShort f		--unknown?? for Textured2 use, no of UV map??
 	face_count = readLong f #unsigned
@@ -837,6 +811,23 @@ fn rGeometry f Iscale mattype texEx showdetail = (
 	-- create empty mesh --
 	--===================--
 	DFFmesh=mesh numverts:vert_count numfaces:face_count
+	
+--	if (mod GeometryFlags 256) >= 128 then bol = true else bol = false
+--	setUserProp DFFmesh "Textured2" bol
+--	if (mod GeometryFlags 128) >= 64 then bol = true else bol = false
+--	setUserProp DFFmesh "ModulateMaterialColor" bol
+--	if (mod GeometryFlags 64) >= 32 then bol = true else bol = false
+--	setUserProp DFFmesh "Light" bol
+--	if (mod GeometryFlags 32) >= 16 then bol = true else bol = false
+--	setUserProp DFFmesh "Normal" bol
+--	if (mod GeometryFlags 16) >= 8 then bol = true else bol = false
+--	setUserProp DFFmesh "Prelit" bol
+--	if (mod GeometryFlags 8) >= 4 then bol = true else bol = false
+--	setUserProp DFFmesh "Textured" bol
+--	if (mod GeometryFlags 4) >= 2 then bol = true else bol = false
+--	setUserProp DFFmesh "Position" bol
+--	if (mod GeometryFlags 2) >= 1 then bol = true else bol = false
+--	setUserProp DFFmesh "TriStrip" bol	
 
 	--Vertex Colors--
 	if ((mod GeometryFlags 16) >= 8) then (
@@ -854,15 +845,16 @@ fn rGeometry f Iscale mattype texEx showdetail = (
 	)--end Vertex Color	
 
 	--UVs--
+--	if ((mod GeometryFlags 8) >= 4) then (	
 	if (t2count > 0)OR((mod GeometryFlags 8) >= 4) then (
 		DFFmesh.numTVerts = vert_count
 		buildTVFaces DFFmesh
-		--format "UV1 Start :%\n" (ftell f)
+--format "UV1 Start :%\n" (ftell f)
 		for i = 1 to vert_count do (
 			SetTVert DFFmesh i [(readFloat f),(1 - (readFloat f)),0]
 		)--end for i	
 	)--end UV
-	--format "UV1 End :%\nUV2 Start :%\n" ((ftell f)-1) (ftell f)	
+--format "UV1 End :%\nUV2 Start :%\n" ((ftell f)-1) (ftell f)	
 
 	--UVs Texture2--
 	if t2count > 1 then (
@@ -873,20 +865,31 @@ fn rGeometry f Iscale mattype texEx showdetail = (
 			(readFloat f);(readFloat f)
 		)--end for i
 	)--end Textured2 UVs
-	--format "UV2 End :%\n" ((ftell f)-1)
+--format "UV2 End :%\n" ((ftell f)-1)
 
 	if t2count > 2 then for  jj = 3 to t2count do (
 		format "UV% Start :%\n" jj (ftell f)
 		for i = 1 to vert_count do ( (readFloat f);(readFloat f) )
 		format "UV% End :%\n" jj ((ftell f)-1)
 	)
-
+	
+--format "Face Start Here:%\n" (ftell f)
+--New Edit (08Aug08)--**
+--For zmod2lock check!!!--
+--	zmod2lockary = #()
+--**
 	--Faces--
 	for i = 1 to face_count do (
 		a2 = (readShort f #unsigned)  + 1.0
 		a1 = (readShort f #unsigned) + 1.0
 		fg = (readShort f #unsigned) 
 		a3 = (readShort f #unsigned) + 1.0
+--New Edit (08Aug08)--**
+--For zmod2lock check!!!--
+--		zmod2lockary[a1] = 1
+--		zmod2lockary[a2] = 1
+--		zmod2lockary[a3] = 1
+--**
 		setFace DFFmesh i a1 a2 a3
 		setEdgeVis DFFmesh i 1 true;setEdgeVis DFFmesh i 2 true;setEdgeVis DFFmesh i 3 true
 		if ((mod GeometryFlags 8) >= 4)OR((mod GeometryFlags 256) >= 128) then ( setTVFace DFFmesh i a1 a2 a3 )
@@ -900,12 +903,34 @@ fn rGeometry f Iscale mattype texEx showdetail = (
 	BoundingRadius = (readFloat f)  * Iscale
 	readFloat f		--PositionFlag??
 	readFloat f		--NormalsFlag??
+--	BSM = Sphere radius:BoundingRadius pos:[BoundingX,BoundingY,BoundingZ] segs:8 renderable:false ishidden:true
+--	BSM.parent = DFFmesh
 
+--New Edit (08Aug08)--**
+--For zmod2lock check!!!--
+	--Unuseverts = #()
+	--for zm = 1 to  vert_count do	if zmod2lockary[zm] == undefined then append Unuseverts zm
+	--zm = 1
+--**
 	--Vertices--
 	for i = 1 to vert_count do (
 		tx = (readFloat f)  * Iscale
 		ty = (readFloat f)  * Iscale
 		tz = (readFloat f)  * Iscale
+--New Edit (08Aug08)(19Aug05)--**
+--For zmod2lock check!!!--
+--		if  (LetsRockandRoll != True)OR(checklock == True) then (
+--			if i == Unuseverts[zm] then (
+--				if [tx,ty,tz] == [0,0,0] then zm += 1
+--				else ( 
+--					delete DFFmesh
+--					if showdetail == true then clearlistener()
+--					messagebox "This DFF is locked !\nThe author of this model do not allow you to modify it.\n\nPlease contact the author for the permission." title:"Import Failed"
+--					return undefined
+--				)--end if/else
+--			)--end if i == Unuseverts[zm]
+--		)
+--**
 		setVert DFFmesh i tx ty tz
 	)--end for i		
 
@@ -915,39 +940,11 @@ fn rGeometry f Iscale mattype texEx showdetail = (
 			tx = readFloat f
 			ty = readFloat f
 			tz = readFloat f
-			--setNormal DFFmesh i [tx,ty,tz]  -- DISABLED: Skip explicit normals for clean topology
+			setNormal DFFmesh i [tx,ty,tz]
 		)--end for i
 	)--end Normals
 
-if DebugMode == true then (
-	global mtlflag = #()
-	if (mod GeometryFlags 256) >= 128 then bol = true else bol = false
-	setUserProp DFFmesh "Textured2" bol
-	if (mod GeometryFlags 128) >= 64 then bol = true else bol = false
-	setUserProp DFFmesh "ModulateMaterialColor" bol
-	if (mod GeometryFlags 64) >= 32 then bol = true else bol = false
-	setUserProp DFFmesh "Light" bol
-	if (mod GeometryFlags 32) >= 16 then bol = true else bol = false
-	setUserProp DFFmesh "Normal" bol
-	if (mod GeometryFlags 16) >= 8 then bol = true else bol = false
-	setUserProp DFFmesh "Prelit" bol
-	if (mod GeometryFlags 8) >= 4 then bol = true else bol = false
-	setUserProp DFFmesh "Textured" bol
-	if (mod GeometryFlags 4) >= 2 then bol = true else bol = false
-	setUserProp DFFmesh "Position" bol
-	if (mod GeometryFlags 2) >= 1 then bol = true else bol = false
-	setUserProp DFFmesh "TriStrip" bol	
-)
-
-    DFFmesh.material = rMaterialList f mattype texEx showdetail
-
-if DebugMode == true then (
-	if mtlflag[1] == true then setUserProp DFFmesh "Tex" true
-	if mtlflag[2] == true then setUserProp DFFmesh "Alpha" true
-	if mtlflag[3] == true then setUserProp DFFmesh "Ref" true
-	if mtlflag[4] == true then setUserProp DFFmesh "SI" true
-	if mtlflag[5] == true then setUserProp DFFmesh "SAS" true
-)
+    DFFmesh.material = rMaterialList f texEx showdetail
 
     if (readLong f) != 3 then ( format "Error in Geometry Extension[Pos: %]\n"  (ftell f); exit )
 	GExt = readLong f #unsigned
@@ -972,6 +969,8 @@ if DebugMode == true then (
 					fseek f string_length #seek_cur
 				)
 				278: (
+			--		if showdetail == true then format "\t\t\t\tSkin(278) Size: % Skipped\n" string_length
+			--		fseek f string_length #seek_cur				
 					if showdetail == true then format "\t\t\t\tSkin(278) Size: %\n" string_length
 					SkinData = rSkinPLG f string_length vert_count ver
 				)
@@ -985,38 +984,50 @@ if DebugMode == true then (
 	
 	update DFFmesh
 	return DFFmesh
-)
---end fn rGeometry			--<i9>--
---
+)--end fn rGeometry			--<i9>--
+
 
 --M------------
 --Main Import--
 ---------------
-fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
+fn DFFin f Iscale texEx Dummysize autoskin showdetail setsname = (
 
 	local RootObj
-    
+
 	bkupadd = ftell f
-	
-    if (LetsRockandRoll != True) then (
+
+	if (LetsRockandRoll != True) then (
         Zmodlocked = CheckZmodLock f
+--		format "lock_state:%\n" Zmodlocked
 		if Zmodlocked == true then messagebox "This DFF is locked !\nThe author of this model do not allow you to modify it.\n\nPlease contact the author for the permission." title:"Import Failed"
+
 	) else ( Zmodlocked = false )
 
 	if Zmodlocked != true then (
-    
+
 		fseek f bkupadd #seek_set
 
 		if showdetail == true then clearlistener()
-		format "Importing %...\n" setsname
 		SkinData = undefined
+--New Edit(13Jul05)--**
 		cpary = rClump f showdetail
-		FrameAry = rFrameList f Iscale showdetail
+--**
+		tmp = rFrameList f Iscale showdetail
+		FrameAry = tmp[1]
+		BoneAry = tmp[2]
 		NumGeo = rGeometryList f showdetail
-		format "Reading % geometr%...\n" NumGeo (if NumGeo == 1 then "y" else "ies")
 		MshAry = #()
-		for i = 1 to NumGeo do (
-			msh = rGeometry f Iscale mattype texEx showdetail 
+--**New Edit(19Aug05)--
+--check 1st Geometry for zmod2 lock--
+		if (LetsRockandRoll != True) then msh = rGeometry f Iscale texEx showdetail true
+		else msh = rGeometry f Iscale texEx showdetail false
+ 		if msh == undefined then (return undefined)
+		append MshAry msh
+--**
+		for i = 2 to NumGeo do (
+			msh = rGeometry f Iscale texEx showdetail false
+--New Edit (08Aug08)--**
+--For zmod2lock check!!!--
 			if msh == undefined then (return undefined)
 			append MshAry msh
 		)
@@ -1024,56 +1035,110 @@ fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 		while (readLong f) != 3 do (
 			fseek f -4 #seek_cur
 			local Idx = rAtomic f showdetail
+--New Edit (15Jul05)--**
 			if Idx.count == 3 then FrameAry[(Idx[1])].obj = Idx[2]
-			else if Idx != undefined then (
-				if (SkinData != undefined)AND(cpary[2] == 0x1803FFFF)AND(NumGeo == 1) then (
-					FrameAry[1].transform = FrameAry[(Idx[1])].transform 	
-					FrameAry[1].obj = MshAry[1]
-				) else FrameAry[(Idx[1])].obj = MshAry[(Idx[2])]
-			)
-			
-if DebugMode == true then ( try(setUserProp MshAry[(Idx[2])] "ATM" Idx[4])catch() )
-			
+			else if Idx != undefined then FrameAry[(Idx[1])].obj = MshAry[(Idx[2])]
+--**
 		)
 
 		if showdetail == true then format "Clump END--> %\n\n" ((ftell f) + 8)
 		
+		lastmsh = undefined
+		lastMeshFrame = undefined
+		
 		for i = 1 to FrameAry.count do (
-			if FrameAry[i].obj == undefined then 
-					FrameAry[i].obj = dummy boxsize:( [1,1,1] * Dummysize * Iscale )
+			if FrameAry[i].obj == undefined then (
+				if (boneAry != undefined) then 
+					FrameAry[i].obj = dummy boxsize:( [1,1,1] * Dummysize * Iscale ) wirecolor:yellow --showLinksOnly:true
+				else	FrameAry[i].obj = dummy boxsize:( [1,1,1] * Dummysize * Iscale )
+			) else 
+--New Edit(09Aug05)--**
+--For trace with char/bone in frameAry--
+ 			(
+				lastmsh = FrameAry[i].obj
+				lastMeshFrame = i
+			)
+--**			
+			if FrameAry[i].boneID != undefined then setUserProp FrameAry[i].obj "BoneID" FrameAry[i].boneID
+	--		if FrameAry[i].name != undefined then FrameAry[i].obj.name = FrameAry[i].name
+
+			--Rename the Bones so easy to add bones manually--
+			--------------------------------------------------
 			if FrameAry[i].name != undefined then (
 				setUserProp FrameAry[i].obj "FrameName" (stripSpace FrameAry[i].name)
+--New Edit(06Jul05)--**
+				if (boneAry != undefined)AND(FrameAry[i].boneID != -1)AND(FrameAry[i].boneID != undefined) then (
+			--	if (boneAry != undefined)AND(FrameAry[i].boneID != -1) then (
+--**
+			--		a = for b in boneAry where b.boneID == FrameAry[i].boneID collect b.boneIndex
+			--		if a[1] < 10 then setUserProp FrameAry[i].obj "BoneIndex" ("0" + a[1] as string)
+			--		else	setUserProp FrameAry[i].obj "BoneIndex" (a[1] as string)
+					a = for b in boneAry where b.boneID == FrameAry[i].boneID collect b
+					setUserProp FrameAry[i].obj "BoneType" a[1].boneType
+					if a[1].boneIndex < 10 then setUserProp FrameAry[i].obj "BoneIndex" ("0" + a[1].boneIndex as string)
+					else	setUserProp FrameAry[i].obj "BoneIndex" (a[1].boneIndex as string)
+				)
 				FrameAry[i].obj.name = FrameAry[i].name
-			) else if setsname != undefined then (
-				-- Use filename as fallback when frame has no name
-				FrameAry[i].obj.name = setsname
 			)
 		)
-        
-		--Here re-calculate transform form IBM--
-		--> inverse(this.transform) is transform in related to world
-		if (SkinData != undefined) then (
-        
-			FrameAry[1].obj.transform = FrameAry[1].transform
-			FrameAry[1].obj.pos = FrameAry[1].obj.pos * Iscale
-			RootObj = FrameAry[1].obj
+		for i = 1 to FrameAry.count do (
+			if FrameAry[i].parentID != 0 then (
+				bkup = FrameAry[(FrameAry[i].parentID)].obj.transform
+				FrameAry[(FrameAry[i].parentID)].obj.transform = (matrix3 [1,0,0] [0,1,0] [0,0,1] [0,0,0])
+				FrameAry[i].obj.parent = FrameAry[(FrameAry[i].parentID)].obj				
+				if showdetail == true then format "% -> %\n" FrameAry[i].obj.name FrameAry[(FrameAry[i].parentID)].obj.name
+				FrameAry[i].obj.transform = FrameAry[i].transform
+				FrameAry[(FrameAry[i].parentID)].obj.transform = bkup
+			) else ( 
+				FrameAry[i].obj.transform = FrameAry[i].transform
+				RootObj = FrameAry[i].obj    
+--format "Root:%\n" RootObj.name
+			)
+		)--end for i
+--New Edit(09Aug05)--**
+--format "LastMesh:%\n" lastmsh
+		if (cpary[2] == 0x1803FFFF)AND(SkinData != undefined)AND(lastMeshFrame != 1) then (        
+			tmpbone = dummy boxsize:( [1,1,1] * Dummysize * Iscale ) wirecolor:yellow --showLinksOnly:true 
+			tmpbone.transform = lastmsh.transform
+			tmpbone.name = lastmsh.name
+			setUserPropBuffer tmpbone (getUserPropbuffer lastmsh)
+			tmpbone.parent = lastmsh.parent
+			CldAry = for dmy in lastmsh.children collect dmy
+			if CldAry.count > 0 then (
+				for dmy in CldAry do dmy.parent = tmpbone
+			)
+			lastmsh.name = "Mesh"
+			lastmsh.parent = undefined
+			lastmsh.pos = [0,0,0]
+			bkupTfm = lastmsh.transform
+			lastmsh.transform = matrix3 [1,0,0] [0,1,0] [0,0,1] [0,0,0]
+			xf = xform()
+			addmodifier lastmsh xf
+			xf.gizmo.scale = bkupTfm.scale
+			xf.gizmo.rotation = conjugate bkupTfm.rotation
+			xf.gizmo.pos = bkupTfm.pos
+			ConvertToMesh lastmsh
+			setUserPropBuffer lastmsh ""
+			c = frameAry[1].obj.children
+			c[1].parent = lastmsh
 			
-			ibm = SkinData[3]
-			--for tf in ibm do format "%\n" tf
-			for i = 1 to ibm.count do (
-				ibm[i].pos = ibm[i].pos * Iscale
-				fms = for fm in FrameAry where (getUserProp fm.obj "BoneIndex") == (i - 1) collect fm
-				if i == 1 then (
-					setUserProp fms[1].obj "SPunknown" SkinData[4]
-					fms[1].obj.transform = ibm[i] * FrameAry[1].obj.transform
-					--format ">>%\n" fms[1].obj.transform
-				) else (
-					fms[1].obj.transform = inverse(ibm[i]) * FrameAry[1].obj.transform --* FrameAry[pid].transform
-					fms[1].obj.parent = FrameAry[(fms[1].parentID)].obj
-					if showdetail == true then format "% -> %\n" fms[1].obj.name FrameAry[(fms[1].parentID)].obj.name
-				)
-			)--end for i
+			frameAry[lastMeshFrame].obj = tmpbone
+			delete frameAry[1].obj
+			frameAry[1].obj = lastmsh
+			RootObj = lastmsh
+		)
 
+		if (cpary[2] == 0x1803FFFF)AND(lastMeshFrame == 1)AND(boneAry != undefined) then frameAry[1].obj.name = "Mesh"
+        
+--**
+--if boneAry != undefined then for jj = 1 to boneAry.count do Format "%\n" boneAry[jj]
+
+	--	if (boneAry != undefined) then append SkinData boneAry.count
+--New Edit(07Jul05)--*
+		if (boneAry != undefined)AND(SkinData != undefined) then (
+--**
+			append SkinData boneAry.count
+			
 			--check for max version, if < v4 then no auto skin--
 			----------------------------------------------------
 			mv = maxVersion()
@@ -1081,47 +1146,37 @@ if DebugMode == true then ( try(setUserProp MshAry[(Idx[2])] "ATM" Idx[4])catch(
 				if autoskin == true then	format "\nNo Auto Skin in Max3!!!\n\n"
 				autoskin = false
 			)
-
-		) else (
-			for i = 1 to FrameAry.count do (
-				if (FrameAry[i].parentID == 0)OR( (SkinData != undefined)AND(FrameAry[i].parentID == 1) ) then ( 
-					FrameAry[i].obj.transform = FrameAry[i].transform
-					if FrameAry[i].parentID == 0 then RootObj = FrameAry[i].obj  
-				) else ( 
-					bkup = FrameAry[(FrameAry[i].parentID)].obj.transform
-					FrameAry[(FrameAry[i].parentID)].obj.transform = (matrix3 [1,0,0] [0,1,0] [0,0,1] [0,0,0])
-					--FrameAry[i].obj.transform = FrameAry[i].transform * inverse( FrameAry[(FrameAry[i].parentID)].obj.transform )
-					FrameAry[i].obj.parent = FrameAry[(FrameAry[i].parentID)].obj				
-					if showdetail == true then format "% -> %\n" FrameAry[i].obj.name FrameAry[(FrameAry[i].parentID)].obj.name
-					FrameAry[i].obj.transform = FrameAry[i].transform
-					FrameAry[(FrameAry[i].parentID)].obj.transform = bkup
-				)
-			)--end for i
-		)
-
-		if (autoskin == true)AND(SkinData != undefined) then (
-			skn = skin()
+			
+			if (autoskin == true)AND(SkinData != undefined) then (
+				skn = skin()
 				
-			max modify mode
-			select RootObj
-			addmodifier RootObj skn
-			for ii = 1 to ibm.count do (
-				tmp = for fm in FrameAry where (getUserProp fm.obj "BoneIndex") == (ii - 1) collect fm.obj
-				skinOps.addbone skn tmp[1] 0
-
-				for jj = 1 to 2 do (
-					skinOps.SetInnerRadius skn ii jj 0
-					skinOps.SetOuterRadius skn ii jj 0
+				max modify mode
+				select RootObj
+				addmodifier RootObj skn
+				for ii = 1 to boneAry.count do (
+					--a = for obj in FrameAry where obj.boneID == boneAry[ii].boneID collect obj.obj
+                    a = for obj in FrameAry where (getUserProp obj.obj "BoneID") == boneAry[ii].boneID collect obj.obj
+					try ( a[1].name = RestoreSpace (getUserProp a[1] "FrameName") ) catch ()
+format ">%\n" a[1].name
+					skinOps.addbone skn a[1] 0
+					for jj = 1 to 2 do (
+						skinOps.SetInnerRadius skn ii jj 0
+						skinOps.SetOuterRadius skn ii jj 0
+					)
+				)--end for ii
+				format "\nSkinning... Please Wait\n"
+				for jj = 1 to $.numVerts do (
+					skinOps.SetVertexWeights skn jj SkinData[1][jj] SkinData[2][jj]
 				)
+				format "Done!\n"	
+			)--end if autoskin
+		)--end if boneAry
 
-			)--end for ii
-			format "\nSkinning... Please Wait\n"
-			for jj = 1 to $.numVerts do (
-				skinOps.SetVertexWeights skn jj SkinData[1][jj] SkinData[2][jj]
-			)
-			format "Done!\n"	
-		)--end if autoskin
-
+		if (boneAry != undefined) then (
+			for fm in FrameAry where classof fm.obj == Dummy do fm.obj.showLinks = true
+			for fm in FrameAry where classof fm.obj == Dummy do fm.obj.showLinksOnly = true
+			forceCompleteRedraw()            
+		)
 		if setsname != undefined then (
 			allObjs = for fm in FrameAry collect fm.obj
 			selectionSets[setsname] = allObjs
@@ -1136,17 +1191,18 @@ if DebugMode == true then ( try(setUserProp MshAry[(Idx[2])] "ATM" Idx[4])catch(
 )--end fn DFFin
 
 fn DFFinInfo = (
-	format "\nDFFin SA function\n"
+	format "\nDFFin SA Beta\n"
 	format "\n"
-    format " - Complete new Bones/Skin functions\n"
 	format " - Second UV Map Skipped!\n"
 	format " - Material Matching based on ashdexx's explanation, many thanks!\n"
 	format " - new GTA Material added\n"
+    format " - body/clothes should imported/skinned correctly(fixed 09Aug05)\n"
 	format " - rwLight try (some data skipped)\n"
+	format " - Auto Skin Fix\n"
 --	format " - dff form Zmod2 should import correctly\n"
 --	format " - debugmode for internal use\n"
 	format " - Non-Standard dff import disabled\n"
-	format "\nby Kam\t\t15Dec05\nkam.lai@ntlworld.com\n\n"
+	format "\nby Kam\t\t19Dec05\nkam.lai@ntlworld.com\n\n"
     
-    return (051215)
+    return (051219)
 )

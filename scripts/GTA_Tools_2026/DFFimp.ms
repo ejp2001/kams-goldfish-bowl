@@ -266,7 +266,6 @@ fn ApplyUVAnimToMaterial mtl animData = (
 			
 			if needsFilling then (
 				local filledKeyframes = #()
-				
 				for i = 1 to cleanedKeyframes.count do (
 					local currKey = cleanedKeyframes[i]
 					local currFrame = currKey[1]
@@ -2529,8 +2528,6 @@ fn ImportIFPToHierarchy rootObj fname skipPosKeys animName = (
 	fclose f
 	return true
 ) -- end fn ImportIFPToHierarchy
-
-format ">>> ImportIFPToHierarchy function defined successfully!\n"
 
 fn DFFinInfo = (
 	format "\nDFFin SA function\n"

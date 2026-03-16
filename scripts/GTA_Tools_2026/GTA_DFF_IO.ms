@@ -5,6 +5,77 @@
 -- IFP editing, batch operations), use Character IO instead.
 -- for world objects and vehicles.
 
+if gDffIOMode == undefined then global gDffIOMode = #shared
+
+fn GetDffIOMode = (
+	case gDffIOMode of (
+		#scenery: #scenery
+		#vehicle: #vehicle
+		default: #shared
+	)
+)
+
+fn IsSceneryMode = (GetDffIOMode() == #scenery)
+fn IsVehicleMode = (GetDffIOMode() == #vehicle)
+fn IsSharedMode = (GetDffIOMode() == #shared)
+
+fn ConfigureDFFInMode = (
+	if DFFinPara == undefined then return false
+
+	case GetDffIOMode() of (
+		#scenery: (
+			try (DFFinPara.mattype.state = 2) catch ()
+			try (DFFinPara.mattype.enabled = false) catch ()
+			try (DFFinPara.IFPimp.visible = true) catch ()
+			try (DFFinPara.lblInfoA.visible = false) catch ()
+			try (DFFinPara.lblInfoB.visible = false) catch ()
+		)
+		#vehicle: (
+			try (DFFinPara.mattype.enabled = true) catch ()
+			try (DFFinPara.IFPimp.visible = false) catch ()
+			try (DFFinPara.lblInfoA.visible = false) catch ()
+			try (DFFinPara.lblInfoB.visible = false) catch ()
+		)
+		default: (
+			try (DFFinPara.mattype.enabled = true) catch ()
+			try (DFFinPara.IFPimp.visible = true) catch ()
+			try (DFFinPara.lblInfoA.visible = true) catch ()
+			try (DFFinPara.lblInfoB.visible = true) catch ()
+		)
+	)
+	true
+)
+
+fn ConfigureDFFExMode = (
+	if DFFexPara == undefined then return false
+
+	case GetDffIOMode() of (
+		#scenery: (
+			try (DFFexPara.noCOL.checked = true) catch ()
+			try (DFFexPara.Vparts.visible = false) catch ()
+			try (DFFexPara.colbase.visible = false) catch ()
+			try (DFFexPara.noCOL.visible = false) catch ()
+			try (DFFexPara.IFPexpNew.visible = true) catch ()
+			try (DFFexPara.IFPexpAppend.visible = true) catch ()
+		)
+		#vehicle: (
+			try (DFFexPara.Vparts.visible = true) catch ()
+			try (DFFexPara.colbase.visible = true) catch ()
+			try (DFFexPara.noCOL.visible = true) catch ()
+			try (DFFexPara.IFPexpNew.visible = false) catch ()
+			try (DFFexPara.IFPexpAppend.visible = false) catch ()
+		)
+		default: (
+			try (DFFexPara.Vparts.visible = true) catch ()
+			try (DFFexPara.colbase.visible = true) catch ()
+			try (DFFexPara.noCOL.visible = true) catch ()
+			try (DFFexPara.IFPexpNew.visible = true) catch ()
+			try (DFFexPara.IFPexpAppend.visible = true) catch ()
+		)
+	)
+	true
+)
+
 global DFFexPara
 global pbMax = 0 
 global pbcount = 0 
@@ -51,6 +122,21 @@ fn ValidateNotCharacter = (
 	return true
 )
 
+fn ConfirmVehicleOnlyEmbeddedCol exportVersion colcase = (
+	if exportVersion != 0x1803FFFF then return true
+	if colcase == 1 then return true
+
+	local msg = "Embedded SA collision/shadow data inside a DFF is VEHICLE-ONLY.\n\n"
+	msg += "Scenery and character DFFs should not contain embedded COL data; GTA SA may crash if they do.\n\n"
+	if colcase == 2 then (
+		msg += "'Vehicle Parts' is intended for vehicle component collision only.\n\n"
+	) else (
+		msg += "Use 'SKIP COL' for scenery/world objects.\n\n"
+	)
+	msg += "Continue only if this export is definitely for a vehicle."
+	return queryBox msg title:"Vehicle-Only Embedded Collision"
+)
+
 -- Load IFP export/import functions (always reload to ensure latest version)
 fileIn (scriptspath+"\\GTA_Tools_2026\\gtaIFPio_Fn.ms") quiet:true
 
@@ -67,17 +153,17 @@ fn ExportIFPFromRoot rootObj fname isAppend = (
 		return false
 	)
 	
-	-- Collect hierarchy (root + all children recursively)
-	local hierarchy = #(rootObj)
-	local queue = #(rootObj)
+	-- Match sa_tools anim_export: the selected root names the animation,
+	-- while only descendant nodes are written as animated tracks.
+	local hierarchy = #()
+	local queue = for child in rootObj.children collect child
 	while queue.count > 0 do (
 		local current = queue[1]
 		deleteItem queue 1
-		for child in current.children do (
-			append hierarchy child
-			append queue child
-		)
+		append hierarchy current
+		for child in current.children do append queue child
 	)
+	if hierarchy.count == 0 then hierarchy = #(rootObj)
 	
 	format "Exporting IFP for % objects (root: %)\n" hierarchy.count rootObj.name
 	
@@ -126,8 +212,9 @@ fn ExportIFPFromRoot rootObj fname isAppend = (
 			fseek f 24 #seek_cur  -- Skip internal name (24 bytes)
 			currentAnimCount = readLong f
 			
-			-- Seek to end of file to append new animation
-			fseek f 0 #seek_end
+			-- Seek to the logical end of animation data, not physical EOF.
+			-- Existing files may contain trailing padding bytes.
+			fseek f (currentFileLength + 8) #seek_set
 			
 		) else (
 			-- Create new file
@@ -145,7 +232,7 @@ fn ExportIFPFromRoot rootObj fname isAppend = (
 			writeLong f 1				-- 1 animation (will update if appending later)
 		)
 		
-		local thisLength = ExpsaIFP f hierarchy animName
+		local thisLength = ExpsaIFP f hierarchy animName useNameMatch:true
 		
 		if thisLength == undefined then (
 			format "No keyframe animation found on % or its children\n" rootObj.name
@@ -342,7 +429,7 @@ Group "Multi. Clump" (
 
 	group "" (
 		radiobuttons textype "Image Type:" labels:#("tga", "bmp","png") columns:3 default:3 tooltip:"Texture file extension to search for when loading materials"
-		radiobuttons mattype "MATERIAL AS:" align:#left labels:#("GTA Material", "Standard") columns:1 offset:[15,5] tooltip:"GTA Material (supports 2dfx effects) or Standard (Max native)"
+		radiobuttons mattype "MATERIAL AS:" align:#left labels:#("GTA Material", "Standard") columns:1 offset:[15,5] tooltip:"GTA Material is mainly useful for vehicle workflow; Standard is the safer general-purpose choice."
 	)
 	
 	-- Load saved settings on rollout open
@@ -350,6 +437,7 @@ Group "Multi. Clump" (
 		local settings = LoadImportSettings()
 		mattype.state = settings[1]
 		textype.state = settings[2]
+		ConfigureDFFInMode()
 	)
 	
 	-- Save settings when changed
@@ -892,6 +980,7 @@ rollout DFFexPara "Export DFF" (
 				)
 			) catch (format "error autoSet(open)\n")
 			exp_lockDFF = false
+			ConfigureDFFExMode()
 			format " ------ DFF IO -------\n last upd: 09.12.25\n         --- \n GTA Tools ver 0.4.0 \n based on Goldfish/Kam's scripts\n modified by E2001\n\n"
 		) 
 		
@@ -1248,8 +1337,16 @@ fn checkObjL objArr = (
 							colcase = 0
 							if noCOL.checked == true then colcase = 1
 							if Vparts.checked == true then colcase = 2
+							
+							if (Vparts.checked == true) and (eSA.checked != true) then (
+								messagebox "Vehicle Parts export is only valid for SA vehicle DFFs." title:"Vehicle Parts - SA Only"
+								skipSingleExp = true
+							)
 								
-							if (eSA.checked==true)AND(SAColBase==undefined)AND(colcase== 0) then messagebox "You need to supply a Collosion model for SA Export!"
+							if (skipSingleExp == false) and (eSA.checked==true) and (ConfirmVehicleOnlyEmbeddedCol 0x1803FFFF colcase == false) then (
+								skipSingleExp = true
+							)
+							else if (eSA.checked==true)AND(SAColBase==undefined)AND(colcase== 0) then messagebox "You need to supply a Collosion model for SA Export!"
 							else (		
 								RootObj = checkRoot $selection -- check one hierarchy
 								if  RootObj != undefined then (
@@ -1381,9 +1478,17 @@ fn checkObjL objArr = (
 
 global Kam_GTA
 if Kam_GTA != undefined then ( closeRolloutFloater Kam_GTA; gc() )
-Kam_GTA = newRolloutFloater "DFF IO" 200 640 10 50		
+Kam_GTA = newRolloutFloater (
+	case GetDffIOMode() of (
+		#scenery: "Scenery IO"
+		#vehicle: "Vehicle IO"
+		default: "DFF IO"
+	)
+) 200 640 10 50		
 addRollout DFFinPara Kam_GTA rolledup:true
 addRollout DFFexPara Kam_GTA rolledup:false
 addRollout aboutRoll Kam_GTA rolledup:true
+ConfigureDFFInMode()
+ConfigureDFFExMode()
 
 

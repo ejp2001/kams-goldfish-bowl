@@ -27,10 +27,20 @@ rollout dumproll "" (
 		fname = getOpenFileName caption:"Open GTA Animation File" types:"IFP animation (*.ifp)|*.ifp|All files (*.*)|*.*|"
 		if (fname != undefined) then (
 			f = fopen fname "rb"
+			if f == undefined then (
+				messagebox "Could not open IFP file." title:"Error"
+				return undefined
+			)
 			format "//"
 			format "\n"
 			clearlistener()
 			dmpName = (getFilenamePath fname) + (getFilenameFile fname) + ".txt"        
+			try (deleteFile dmpName) catch ()
+			if (setListenerFile dmpName) != true then (
+				fclose f
+				messagebox ("Could not create dump file:\n" + dmpName) title:"Error"
+				return undefined
+			)
 			format "<!-- path=\"%\" -->\n" dmpName
 			format"//\n//\n//This is Header Section\n"
 			HeaderID = readLong f
@@ -137,6 +147,7 @@ rollout dumproll "" (
 
 			) else (clearlistener() ; messagebox "Unknown IFP Format!" title:"Error" ) --end if ANP3
 			fclose f
+			setListenerFile ""
 		)
 	)
 )--end rollout dumproll 

@@ -280,14 +280,23 @@ fn ApplyAnim f AllObjects noPOSkey stm ver = (
 				--format "->%\n" SAbone
 				if SAbone != undefined then (
 					with animate on at time tm (
-						in coordsys parent (
+						if GTAAnim_IsSARootBone SAbone then (
 							bkup = SAbone.pos
 							SAbone.pos = [0,0,0]
 							SAbone.rotation = rot
 							SAbone.pos = bkup
+						) else (
+							in coordsys parent (
+								bkup = SAbone.pos
+								SAbone.pos = [0,0,0]
+								SAbone.rotation = rot
+								SAbone.pos = bkup
+							)
 						)
 						if (KeyType == 4)AND(noPOSkey==False) then (
-							if SAbone.parent != undefined then
+							if GTAAnim_IsSARootBone SAbone then
+								SAbone.pos = tlt
+							else if SAbone.parent != undefined then
 								in coordsys parent ( SAbone.pos = tlt )
 							else SAbone.pos = tlt
 							pc = SAbone.pos.controller
@@ -415,6 +424,118 @@ fn SyncTRKeys obj = (
 )
 --end SyncTRKeys
 --
+fn GTAAnim_SAQuatInts rot = (
+	#(
+		((rot.x * 4096) as integer),
+		((rot.y * 4096) as integer),
+		((rot.z * 4096) as integer),
+		((rot.w * 4096) as integer)
+	)
+)
+--
+fn GTAAnim_SAPosInts pos = (
+	#(
+		((pos.x * 1024) as integer),
+		((pos.y * 1024) as integer),
+		((pos.z * 1024) as integer)
+	)
+)
+--
+fn GTAAnim_SAQuatEqual rotA rotB = (
+	local qa = GTAAnim_SAQuatInts rotA
+	local qb = GTAAnim_SAQuatInts rotB
+	if (qa[1] == qb[1]) and (qa[2] == qb[2]) and (qa[3] == qb[3]) and (qa[4] == qb[4]) then return true
+	if (qa[1] == -qb[1]) and (qa[2] == -qb[2]) and (qa[3] == -qb[3]) and (qa[4] == -qb[4]) then return true
+	false
+)
+--
+fn GTAAnim_SAPosEqual posA posB = (
+	local pa = GTAAnim_SAPosInts posA
+	local pb = GTAAnim_SAPosInts posB
+	(pa[1] == pb[1]) and (pa[2] == pb[2]) and (pa[3] == pb[3])
+)
+--
+fn GTAAnim_IsSARootBone bne = (
+	((getUserProp bne "BoneID") == 0)
+)
+--
+fn GTAAnim_GetSAExportSample bne includePos = (
+	local rot = undefined
+	local pos = undefined
+
+	if bne == undefined then return #(rot, pos)
+
+	if GTAAnim_IsSARootBone bne then (
+		try (rot = bne.rotation) catch ()
+		if includePos then try (pos = bne.pos) catch ()
+	) else if bne.parent != undefined then (
+		in coordsys parent (
+			try (rot = bne.rotation) catch ()
+			if includePos then try (pos = bne.pos) catch ()
+		)
+	) else (
+		try (rot = bne.rotation) catch ()
+		if includePos then try (pos = bne.pos) catch ()
+	)
+
+	#(rot, pos)
+)
+--
+fn GTAAnim_GetSAExportKeyInfo bne = (
+	local hasPosKeys = false
+	local keyCount = 0
+	local pr = undefined
+	local pc = undefined
+
+	if bne == undefined then return #(0, false)
+
+	try (hasPosKeys = (bne.pos.controller.keys.count > 1)) catch (hasPosKeys = false)
+	if hasPosKeys then SyncTRKeys bne
+
+	pr = bne.rotation.controller
+	pc = bne.pos.controller
+	try (keyCount = pr.keys.count) catch (keyCount = 0)
+	if hasPosKeys then (
+		try (
+			if pc.keys.count < keyCount then keyCount = pc.keys.count
+		) catch ()
+	)
+	if keyCount <= 0 then return #(0, false)
+
+	while keyCount > 1 do (
+		local prevTime = getKeyTime pr (keyCount - 1)
+		local currTime = getKeyTime pr keyCount
+		local prevSample = undefined
+		local currSample = undefined
+		local prevRot = undefined
+		local currRot = undefined
+		local prevPos = undefined
+		local currPos = undefined
+		local sameRot = false
+		local samePos = true
+
+		at time prevTime (
+			prevSample = GTAAnim_GetSAExportSample bne hasPosKeys
+			prevRot = prevSample[1]
+			if hasPosKeys then prevPos = prevSample[2]
+		)
+		at time currTime (
+			currSample = GTAAnim_GetSAExportSample bne hasPosKeys
+			currRot = currSample[1]
+			if hasPosKeys then currPos = currSample[2]
+		)
+
+		if (prevRot != undefined) and (currRot != undefined) then sameRot = GTAAnim_SAQuatEqual prevRot currRot
+		if hasPosKeys then samePos = (prevPos != undefined) and (currPos != undefined) and GTAAnim_SAPosEqual prevPos currPos
+
+		if sameRot and samePos then keyCount -= 1
+		else exit
+	)
+
+	if hasPosKeys and (keyCount < 2) then hasPosKeys = false
+	#(keyCount, hasPosKeys)
+)
+--
 fn GetAnmKeysObjs AllObjects = (
 	AnmObjAry = #()
 	ByteCount = 0
@@ -422,14 +543,11 @@ fn GetAnmKeysObjs AllObjects = (
 		bid = getUserProp bne "BoneID"
 		if bid != undefined then (
 			if bid >= 0 then ( 
-				if bne.pos.controller.keys.count > 1 then (
+				local exportInfo = GTAAnim_GetSAExportKeyInfo bne
+				if exportInfo[1] > 0 then (
 					append AnmObjAry bne
-					SyncTRKeys bne
-					ByteCount += (bne.pos.controller.keys.count) * 16
-				)
-				else if bne.rotation.controller.keys.count > 0 then (
-					append AnmObjAry bne
-					ByteCount += (bne.rotation.controller.keys.count) * 10
+					if exportInfo[2] then ByteCount += (exportInfo[1] * 16)
+					else ByteCount += (exportInfo[1] * 10)
 				)
 			)--end if bid >= 0
 		)--end if bid == undefined				
@@ -438,7 +556,7 @@ fn GetAnmKeysObjs AllObjects = (
 )
 --end fn GetAnmKeysObjs
 --
-fn ExpsaIFP f AllObjects AnmName = (
+fn ExpsaIFP f AllObjects AnmName useNameMatch:false = (
 	st = ftell f
 	KOAry = GetAnmKeysObjs AllObjects
 	if KOAry[2] == 0 then return undefined
@@ -451,53 +569,48 @@ fn ExpsaIFP f AllObjects AnmName = (
 	
 	BAry = SortByBoneID KOAry[1]
 	for bne in BAry[2] do (
-		writeString f bne.name
-		for i = 1 to (23 - bne.name.count) do writeByte f 0
+		local exportInfo = GTAAnim_GetSAExportKeyInfo bne
+		local keyCount = exportInfo[1]
+		local writePosKeys = exportInfo[2]
+		if keyCount > 0 then (
+			writeString f bne.name
+			for i = 1 to (23 - bne.name.count) do writeByte f 0
+			
+			if writePosKeys then writeLong f 4
+			else writeLong f 3
+			
+			writeLong f keyCount
+			
+			if useNameMatch == true then writeLong f -1
+			else writeLong f (getUserProp bne "BoneID")
 		
-		if bne.pos.controller.keys.count > 1 then writeLong f 4
-		else writeLong f 3
-		
-		writeLong f (bne.rotation.controller.keys.count)
-		
-		writeLong f -1  -- World object animations use -1 (name matching), not bone index
-	
-		pr = bne.rotation.controller
-		--bkpr = undefined
-		--if classof pr != tcb_rotation then (
-			--bkpr = classof pr
-			--pr = tcb_rotation()
-		--)
-		for j = 1 to pr.keys.count do (
+			pr = bne.rotation.controller
+			for j = 1 to keyCount do (
 
-			tm = getKeyTime pr j
-			at time tm (
+				tm = getKeyTime pr j
+				at time tm (
+					local sample = GTAAnim_GetSAExportSample bne writePosKeys
+					rot = sample[1]
 
-				if bne.parent != undefined then
-					in coordsys parent ( rot = bne.rotation )
-				else 		rot = bne.rotation
-
-				writeShort f ((rot.x * 4096) as integer)
-				writeShort f ((rot.y * 4096) as integer)
-				writeShort f ((rot.z * 4096) as integer)
-				writeShort f ((rot.w * 4096) as integer)
-				
-				val = ((tm/framerate * 60) as string) as float
-				if val - (val as integer) > 0.5 then val += 1
-				writeShort f ( val )
-				
-				if bne.pos.controller.keys.count > 1 then (
-					if bne.parent != undefined then
-						in coordsys parent 	trn = bne.pos
-					else 	trn = bne.pos
-					writeShort f ((trn.x * 1024) as integer)
-					writeShort f ((trn.y * 1024) as integer)
-					writeShort f ((trn.z * 1024) as integer)
-				)--if posKey
-				
-			)--end at time tm
-		)--end for j
-		--format ">>\n"		
-		--if bkpr != undefined then execute ( "bne.rotation.controller = " + (bkpr as string) + "()" )
+					writeShort f ((rot.x * 4096) as integer)
+					writeShort f ((rot.y * 4096) as integer)
+					writeShort f ((rot.z * 4096) as integer)
+					writeShort f ((rot.w * 4096) as integer)
+					
+					val = ((tm/framerate * 60) as string) as float
+					if val - (val as integer) > 0.5 then val += 1
+					writeShort f ( val )
+					
+					if writePosKeys then (
+						trn = sample[2]
+						writeShort f ((trn.x * 1024) as integer)
+						writeShort f ((trn.y * 1024) as integer)
+						writeShort f ((trn.z * 1024) as integer)
+					)--if posKey
+					
+				)--end at time tm
+			)--end for j
+		)
 		
 	)--end for bne
 	return ((ftell f) - st)
@@ -850,50 +963,50 @@ fn gExpsaIFP ss AllObjects AnimName = (
 
 	BAry = SortByBoneID KOAry[1]
 	for bne in BAry[2] do (    
-    
-		format "c 24\n%\n" (stripSpace bne.name)		to:ss
-		--format "c %\n%\n" bne.name.count (stripSpace bne.name)		to:ss
-		--format "b %\n"  (24 - bne.name.count) 		to:ss
-		--for i = 1 to (24 - bne.name.count) do format "0 "		to:ss
-		--format "\n"		to:ss
-    
-		if bne.pos.controller.keys.count > 1 then format "i 3\n4 "		to:ss
-		else format "i 3\n3 "		to:ss
+		local exportInfo = GTAAnim_GetSAExportKeyInfo bne
+		local keyCount = exportInfo[1]
+		local writePosKeys = exportInfo[2]
+		if keyCount > 0 then (
+			format "c 24\n%\n" (stripSpace bne.name)		to:ss
+			--format "c %\n%\n" bne.name.count (stripSpace bne.name)		to:ss
+			--format "b %\n"  (24 - bne.name.count) 		to:ss
+			--for i = 1 to (24 - bne.name.count) do format "0 "		to:ss
+			--format "\n"		to:ss
+			
+			if writePosKeys then format "i 3\n4 "		to:ss
+			else format "i 3\n3 "		to:ss
 
-		format "% " (bne.rotation.controller.keys.count)		to:ss
+			format "% " keyCount		to:ss
 
-		format "%\n" (getUserProp bne "BoneID")		to:ss
+			format "%\n" (getUserProp bne "BoneID")		to:ss
 
-		pr = bne.rotation.controller
-		for j = 1 to pr.keys.count do (
+			pr = bne.rotation.controller
+			for j = 1 to keyCount do (
 
-			tm = getKeyTime pr j
-			at time tm (
+				tm = getKeyTime pr j
+				at time tm (
+					local sample = GTAAnim_GetSAExportSample bne writePosKeys
+					rot = sample[1]
 
-				if bne.parent != undefined then
-					in coordsys parent ( rot = bne.rotation )
-				else 		rot = bne.rotation
-
-				r1 = (rot.x * 4096) as integer
-				r2 = (rot.y * 4096) as integer
-				r3 = (rot.z * 4096) as integer
-				r4 = (rot.w * 4096) as integer 
-				val = ((tm/framerate * 60) as string) as float
-				if val - (val as integer) > 0.5 then val += 1
-				format "w 5\n% % % % %\n" r1 r2 r3 r4 (val as integer)		to:ss
+					r1 = (rot.x * 4096) as integer
+					r2 = (rot.y * 4096) as integer
+					r3 = (rot.z * 4096) as integer
+					r4 = (rot.w * 4096) as integer 
+					val = ((tm/framerate * 60) as string) as float
+					if val - (val as integer) > 0.5 then val += 1
+					format "w 5\n% % % % %\n" r1 r2 r3 r4 (val as integer)		to:ss
 	
-				if bne.pos.controller.keys.count > 1 then (
-					if bne.parent != undefined then
-						in coordsys parent 	trn = bne.pos
-					else 	trn = bne.pos
-					p1 = (trn.x * 1024) as integer
-					p2 = (trn.y * 1024) as integer
-					p3 = (trn.z * 1024) as integer
-					format "w 3\n% % %\n" p1 p2 p3		to:ss
-				)--if posKey
+					if writePosKeys then (
+						trn = sample[2]
+						p1 = (trn.x * 1024) as integer
+						p2 = (trn.y * 1024) as integer
+						p3 = (trn.z * 1024) as integer
+						format "w 3\n% % %\n" p1 p2 p3		to:ss
+					)--if posKey
 
-			)--end at time tm
-		)--end for j
+				)--end at time tm
+			)--end for j
+		)
 	)--end for bne
 	
 	--format "%\n" (ss as string)
@@ -1062,9 +1175,7 @@ fn gm_expAnim ss AllObjAry useBoneID animName = (
 
 
 fn IFPioInfo = (
-	format "\nIFPio version 1.2 (Modified Jan 2026)\n"
-	format "   - Fixed animation import for custom skeletons\n"
-	format "   - Only creates keys that exist in IFP file\n\n"
+	format "\nIFPio version 1.2\n\n"
 	format "Original by Kam\t\t14Oct05\n"
 	format "Modified by E2001\t07Jan26\n"
 	return 260107

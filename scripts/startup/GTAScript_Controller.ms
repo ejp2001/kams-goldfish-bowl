@@ -1,7 +1,7 @@
 try ( closeUtility Kams_Scripts) catch ()
 fn runEmt = ()
 fn addKamsToolsMenu_ = (
------------------- deleting previous menu
+	-- deleting previous menu
 	if ((menuMan.findMenu "GTA Tools") != undefined) then (
 		menuMan.unRegisterMenu (menuMan.findMenu "GTA Tools")
 		menuMan.updateMenuBar()
@@ -30,6 +30,26 @@ fn addKamsToolsMenu_ = (
 		internalCategory:"KAMs_Scripts" (
 		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find DFF IO script"
+	)
+	macroScript kams_sceneryio
+		buttonText:"Scenery IO"
+		category:"KAMs_Scripts"
+		internalCategory:"KAMs_Scripts" (
+		try (
+			global gDffIOMode = #scenery
+			fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")
+		)
+		catch messagebox "Please re-install my Scenery IO script!" title:"Can't find Scenery IO script"
+	)
+	macroScript kams_vehicleio
+		buttonText:"Vehicle IO"
+		category:"KAMs_Scripts"
+		internalCategory:"KAMs_Scripts" (
+		try (
+			global gDffIOMode = #vehicle
+			fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")
+		)
+		catch messagebox "Please re-install my Vehicle IO script!" title:"Can't find Vehicle IO script"
 	)
 	macroScript kams_chario
 		buttonText:"Character IO"
@@ -427,6 +447,10 @@ fn addKamsToolsMenu_ = (
 		subMenu = menuMan.createMenu "GTA Tools"
 		testItem = menuMan.createActionItem ("kams_dffio") "KAMs_Scripts"
 		subMenu.addItem testItem -1	
+		testItem = menuMan.createActionItem ("kams_sceneryio") "KAMs_Scripts"
+		subMenu.addItem testItem -1
+		testItem = menuMan.createActionItem ("kams_vehicleio") "KAMs_Scripts"
+		subMenu.addItem testItem -1
 		
 		separator2 = menuMan.createSeparatorItem() -- LINE
 		subMenu.addItem separator2 -1
@@ -501,7 +525,10 @@ fn addKamsToolsMenu_ = (
 		subSubMenu5.addItem testItem -1
 		testItem = menuMan.createActionItem ("kams_uvani") "KAMs_Scripts"
 		subSubMenu5.addItem testItem -1
-	) catch messagebox ("Error creating GTA Tools menu!\n\nYou can run scripts manually from the folder:\n" + scriptspath+"\\GTA_Tools_2026\\") title: "GTA Tools 2026"
+	) catch (
+		local menuErrMsg = "Error creating GTA Tools menu!\n\nYou can run scripts manually from the folder:\n" + scriptspath + "\\GTA_Tools_2026\\"
+		messageBox menuErrMsg title:"GTA Tools 2026"
+	)
 )
 
 utility Kams_Scripts "GTA Tools 2026" (
@@ -510,7 +537,7 @@ utility Kams_Scripts "GTA Tools 2026" (
 		button script06 "Character IO" width:140 align:#center offset:[0,-5]
 		button script02 "Collision IO" width:140 align:#center offset:[0,-5]
 		button script03 "Map IO" width:140 align:#center offset:[0,-5]
-)
+	)
 	on script01 pressed do ( 
 			try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_DFF_IO.ms")   )
 		catch messagebox "Please re-install my DFF IO script!" title:"Can't find DFF IO script"
@@ -553,7 +580,6 @@ utility Kams_Scripts "GTA Tools 2026" (
 	group "Animation" (
 		button script13 "IFP IO" width:140 align:#center tooltip:"Load, edit, and export IFP animation files"
 		button script14 "UV Animation" width:140 align:#center tooltip:"Create UV sprite animations from texture atlases" offset:[0,-5]
-
 		button script05 "IFP dump" width:140 align:#center tooltip:"This script is for GMax only" offset:[0,-5]
 	)
 	

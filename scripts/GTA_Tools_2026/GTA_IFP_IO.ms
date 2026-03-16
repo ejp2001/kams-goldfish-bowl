@@ -5,6 +5,11 @@
 -- Modified by E2001 (2024-2026)
 --
 -- Separated from Character IO for standalone animation management
+--
+-- CHANGELOG (March 14, 2026):
+-- - Restored immediate save behavior (all operations save to disk immediately)
+-- - Removed "Save File" button (no longer needed with immediate saves)
+-- - All operations now match original workflow: instant file updates
 
 -- MUTEX: Close other IFP tools to prevent global variable conflicts
 try (closeRolloutFloater Kam_GTAsaIFP) catch ()
@@ -17,13 +22,296 @@ fileIn (scriptspath+"\\GTA_Tools_2026\\gtaIFPio_Fn.ms") quiet:true
 
 AnimInfo = #()
 ifpname = undefined
-PendingAnimData = #()  -- Stores data for new animations not yet written to file
+global GTAAnimNorm_lastAnimName = "NORMALIZED"
+
+fn GTAAnim_AppendUniqueTime timeArray tm = (
+	if (findItem timeArray tm) == 0 then append timeArray tm
+)
+
+fn GTAAnim_SortTimes timeArray = (
+	qsort timeArray (fn _gtaAnimSort a b = (if a < b then -1 else if a > b then 1 else 0))
+	timeArray
+)
+
+fn GTAAnim_CollectHierarchy rootObj = (
+	local nodes = #()
+	if rootObj == undefined then return nodes
+
+	local queue = #(rootObj)
+	while queue.count > 0 do (
+		local current = queue[1]
+		deleteItem queue 1
+		append nodes current
+		for child in current.children do append queue child
+	)
+	nodes
+)
+
+fn GTAAnim_FindSceneRoot obj = (
+	local rootObj = obj
+	if rootObj == undefined then return undefined
+	while rootObj.parent != undefined do rootObj = rootObj.parent
+	rootObj
+)
+
+fn GTAAnim_FindGTARoot obj = (
+	local sceneRoot = GTAAnim_FindSceneRoot obj
+	if sceneRoot == undefined then return undefined
+
+	local hierarchy = GTAAnim_CollectHierarchy sceneRoot
+	for node in hierarchy do (
+		if (getUserProp node "BoneID") == 0 then return node
+	)
+	sceneRoot
+)
+
+fn GTAAnim_GetKeyTimes ctrl startTime endTime = (
+	local times = #()
+	if ctrl == undefined then return times
+	try (
+		for i = 1 to ctrl.keys.count do (
+			local tm = getKeyTime ctrl i
+			if (tm >= startTime) and (tm <= endTime) then GTAAnim_AppendUniqueTime times tm
+		)
+	) catch ()
+	times
+)
+
+fn GTAAnim_GetFrameFromTime tm = (
+	((tm as integer) / ticksPerFrame) as integer
+)
+
+fn GTAAnim_GetTimeFromFrame frameNumber = (
+	(frameNumber as integer) * ticksPerFrame
+)
+
+fn GTAAnim_GetExportBones rootObj = (
+	local exportBones = #()
+	for node in (GTAAnim_CollectHierarchy rootObj) where (getUserProp node "BoneID") != undefined do append exportBones node
+	exportBones
+)
+
+fn GTAAnim_GetSceneNodes = (
+	local sceneNodes = #()
+	for child in rootNode.children do join sceneNodes (GTAAnim_CollectHierarchy child)
+	sceneNodes
+)
+
+fn GTAAnim_GetSceneBoneNodes = (
+	local boneNodes = #()
+	for node in (GTAAnim_GetSceneNodes()) where (getUserProp node "BoneID") != undefined do append boneNodes node
+	boneNodes
+)
+
+fn GTAAnim_GetNameFromPath fname maxLen:0 = (
+	local outName = getFilenameFile fname
+	if outName == undefined or outName == "" then outName = "KamMaxScriptExp"
+	if (maxLen > 0) and (outName.count > maxLen) then outName = substring outName 1 maxLen
+	outName
+)
+
+fn GTAAnim_StoreOriginalPose nodes = (
+	for node in nodes do (
+		setUserProp node "OrgPos" node.pos
+		setUserProp node "OrgRot" [node.rotation.x,node.rotation.y,node.rotation.z]
+		setUserProp node "OrgRotW" node.rotation.w
+		setUserProp node "Orgscl" node.scale
+	)
+)
+
+fn GTAAnim_EnsureOriginalPoseForHierarchy rootObj = (
+	if rootObj == undefined then return false
+	local hierarchy = GTAAnim_CollectHierarchy rootObj
+	if hierarchy.count == 0 then return false
+	if (getUserProp hierarchy[1] "OrgPos") == undefined then GTAAnim_StoreOriginalPose hierarchy
+	true
+)
+
+fn GTAAnim_ClearSelectionKeys nodes = (
+	for node in nodes do (
+		try (deletekeys node.pos.controller) catch ()
+		try (deletekeys node.rotation.controller) catch ()
+		try (deletekeys node.scale.controller) catch ()
+	)
+)
+
+	fn GTAAnim_ResetSelectionControllers nodes = (
+		for node in nodes do (
+			local curPos = node.pos
+			local curRot = node.rotation
+			local curScale = node.scale
+			try (node.rotation.controller = tcb_rotation()) catch ()
+			try (node.pos.controller = bezier_position()) catch ()
+			try (node.scale.controller = bezier_scale()) catch ()
+			try (node.rotation = curRot) catch ()
+			try (node.scale = curScale) catch ()
+			try (node.pos = curPos) catch ()
+		)
+	)
+
+fn GTAAnim_RestoreOriginalPoseImmediate nodes = (
+	for node in nodes do (
+		try (
+			local rotXYZ = readvalue ((getUserProp node "OrgRot") as stringstream)
+			local rotW = getUserProp node "OrgRotW"
+			node.rotation = (quat rotXYZ.x rotXYZ.y rotXYZ.z rotW)
+			node.scale = readvalue ((getUserProp node "Orgscl") as stringstream)
+			node.pos = readvalue ((getUserProp node "OrgPos") as stringstream)
+		) catch ()
+	)
+)
+
+fn GTAAnim_GetApplyNodes = (
+	if selection.count > 0 then return (selection as array)
+	GTAAnim_GetSceneNodes()
+)
+
+fn GTAAnim_WriteSingleIFPHeader f ver outPath = (
+	local internalName = undefined
+	if ver == 0x33504E41 then (
+		internalName = GTAAnim_GetNameFromPath outPath maxLen:23
+		writeLong f 0x33504E41
+		writeLong f 0
+		writeString f internalName
+		for i = 1 to (23 - internalName.count) do writeByte f 0
+		writeLong f 1
+	) else (
+		internalName = GTAAnim_GetNameFromPath outPath
+		writeLong f 0x4B504E41
+		writeLong f 0
+		writeLong f 0x4F464E49
+		local infoLength = internalName.count + 1 + 4
+		local skipbyte = 4 - (mod (internalName.count + 1) 4)
+		if skipbyte != 4 then infoLength += skipbyte
+		writeLong f infoLength
+		writeLong f 1
+		writeString f internalName
+		if skipbyte != 4 then (
+			for i = 1 to skipbyte do writeByte f 0
+		)
+	)
+	internalName
+)
+
+fn GTAAnim_NormalizeRootFacing rootObj yawDegrees startFrame endFrame rotatePosition rotateRotation = (
+	local gtaRoot = GTAAnim_FindGTARoot rootObj
+	if gtaRoot == undefined then return #(false, "Could not find a GTA root node.")
+	GTAAnim_EnsureOriginalPoseForHierarchy gtaRoot
+
+	local startTime = GTAAnim_GetTimeFromFrame startFrame
+	local endTime = GTAAnim_GetTimeFromFrame endFrame
+	local times = #()
+
+	if rotateRotation then (
+		for tm in GTAAnim_GetKeyTimes gtaRoot.rotation.controller startTime endTime do GTAAnim_AppendUniqueTime times tm
+	)
+	if rotatePosition then (
+		for tm in GTAAnim_GetKeyTimes gtaRoot.pos.controller startTime endTime do GTAAnim_AppendUniqueTime times tm
+	)
+
+	if times.count == 0 then GTAAnim_AppendUniqueTime times startTime
+	GTAAnim_AppendUniqueTime times endTime
+	GTAAnim_SortTimes times
+
+	local yawQuat = (angleaxis yawDegrees [0,0,1]) as quat
+	local yawMatrix = rotateZMatrix yawDegrees
+	local rootAnchorPos = undefined
+	local rotSamples = #()
+	local posSamples = #()
+	if rotatePosition then (
+		at time startTime (
+			try (rootAnchorPos = gtaRoot.pos) catch ()
+		)
+	)
+
+	for tm in times do at time tm (
+		if rotateRotation then (
+			local currentRot = undefined
+			try (currentRot = gtaRoot.rotation) catch ()
+			if currentRot != undefined then append rotSamples #(tm, (yawQuat * currentRot))
+		)
+		if rotatePosition then (
+			local currentPos = undefined
+			try (currentPos = gtaRoot.pos) catch ()
+			if (currentPos != undefined) and (rootAnchorPos != undefined) then (
+				local posOffset = currentPos - rootAnchorPos
+				append posSamples #(tm, (rootAnchorPos + (posOffset * yawMatrix)))
+			)
+		)
+	)
+
+	if rotateRotation and (classof gtaRoot.rotation.controller != tcb_rotation) then (
+		gtaRoot.rotation.controller = tcb_rotation()
+	)
+	if rotatePosition and (classof gtaRoot.pos.controller != bezier_position) then (
+		gtaRoot.pos.controller = bezier_position()
+	)
+
+	with animate on (
+		for sample in rotSamples do at time sample[1] (
+			gtaRoot.rotation = sample[2]
+		)
+		for sample in posSamples do at time sample[1] (
+			gtaRoot.pos = sample[2]
+			local pc = gtaRoot.pos.controller
+			local tk = getKeyIndex pc sample[1]
+			try (
+				pc.keys[tk].InTangentType = #linear
+				pc.keys[tk].OutTangentType = #linear
+			) catch ()
+		)
+	)
+
+	#(true, ("Normalized root '" + gtaRoot.name + "' across " + (times.count as string) + " key time(s)."), gtaRoot, times.count)
+)
+
+fn GTAAnim_ExportNormalizedIFP rootObj fname animName exportFormat useBoneIDsForANPK = (
+	local gtaRoot = GTAAnim_FindGTARoot rootObj
+	if gtaRoot == undefined then return #(false, "Could not find a GTA root node.")
+
+	local exportBones = GTAAnim_GetExportBones gtaRoot
+	if exportBones.count == 0 then return #(false, "No nodes with BoneID were found under the selected hierarchy.")
+	local resolvedAnimName = GTAAnim_GetNameFromPath fname maxLen:23
+
+	local f = undefined
+	try (
+		f = fopen fname "wb"
+		if f == undefined then return #(false, "Could not create the output file.")
+
+		local thisLength = undefined
+		if exportFormat == 1 then (
+			GTAAnim_WriteSingleIFPHeader f 0x33504E41 fname
+			thisLength = ExpsaIFP f exportBones resolvedAnimName
+		) else (
+			GTAAnim_WriteSingleIFPHeader f 0x4B504E41 fname
+			thisLength = expAnim f exportBones useBoneIDsForANPK resolvedAnimName
+		)
+
+		if thisLength == undefined then (
+			fclose f
+			deleteFile fname
+			return #(false, "No animation data was exported. Check that the bones have keys.")
+		)
+
+		local totalSize = ftell f
+		fseek f 4 #seek_set
+		writeLong f (totalSize - 8)
+		fclose f
+		#(true, ("Exported normalized animation '" + resolvedAnimName + "'."), exportBones.count)
+	) catch (
+		try (fclose f) catch ()
+		try (deleteFile fname) catch ()
+		#(false, (getCurrentException() as string))
+	)
+)
 
 /*
 =============================================================================
    SECTION 1: ANIMATION (IFP) MANAGEMENT
    Uses: gtaIFPio_Fn.ms (2018 Goldfish Edition)
    Status: Working correctly
+   
+   All operations save immediately (no pending changes)
 =============================================================================
 */
 
@@ -41,12 +329,12 @@ rollout animateRoll "Animation" (
 	
 	label lblSpacer1 "" height:8
 	
-	button btnRename "Rename" width:80 tooltip:"Rename selected animation (use Save File after)" across:2
-	button btnDelete "Delete" width:80 tooltip:"Remove selected animation from list (use Save File after)"
-	button btnMoveUp "Move UP" width:80 tooltip:"Move animation up in list order (affects in-game loading)" across:2
-	button btnMoveDown "Move DOWN" width:80 tooltip:"Move animation down in list order (affects in-game loading)"
-	button btnSaveNew "Add New Animation" width:120 tooltip:"Add current timeline as new animation to loaded IFP" align:#center
-	button ReplaceAnim "Replace Animation" width:120 align:#center tooltip:"Replace selected animation with current timeline"
+	button btnRename "Rename" width:80 tooltip:"Rename selected animation (saves immediately)" across:2
+	button btnDelete "Delete" width:80 tooltip:"Remove selected animation from list (saves immediately)"
+	button btnMoveUp "Move UP" width:80 tooltip:"Move animation up in list order (saves immediately)" across:2
+	button btnMoveDown "Move DOWN" width:80 tooltip:"Move animation down in list order (saves immediately)"
+	button btnSaveNew "Add New Animation" width:120 tooltip:"Add current timeline as new animation to loaded IFP (saves immediately)" align:#center
+	button ReplaceAnim "Replace Animation" width:120 align:#center tooltip:"Replace selected animation with current timeline (saves immediately)"
 	button saveAnim "Export New IFP" width:120 align:#center tooltip:"Export current timeline as brand new IFP file"
 	radioButtons formatType "Format:" labels:#("ANP3 (SA)", "ANPK (III/VC)") columns:2 default:1 align:#center offset:[0,0] tooltip:"SA uses ANP3 format, III/VC use ANPK format"
 	checkbox useBoneID "Sibling" align:#left checked:false enabled:false offset:[85,-5]
@@ -63,11 +351,6 @@ rollout animateRoll "Animation" (
 	spinner astart "Start" fieldwidth:30 type:#integer range:[0,10000,0] across:2 tooltip:"Starting frame for batch export"
 	spinner aend "End" fieldwidth:30 type:#integer range:[0,10000,0] tooltip:"Ending frame for batch export"
 	button batAnim "Batch Animation" width:122 align:#center tooltip:"Export multiple animations at once (range-based)"
-	
-	label lblSpacer4 "" height:8
-	
-	button btnSaveFile "Save File" width:120 tooltip:"Save all changes (rename/delete/move) to IFP file" align:#center
-	label lblInfo3 "Use 'Save File' after renaming/deleting/moving" align:#center
 	
 	-- ===========================
 	-- EVENT HANDLERS - ANIMATION
@@ -95,7 +378,6 @@ rollout animateRoll "Animation" (
 					messagebox "Animation Data not correct!!" Title:"IFP File Error"
 				) else ( 
 					AnimList.items = AnimInfo[1]
-					PendingAnimData = #()  -- Clear pending animations when loading new file
 					
 					-- Auto-detect format and set radio buttons
 					if AnimInfo[3] == 0x4B504E41 then (
@@ -167,8 +449,6 @@ rollout animateRoll "Animation" (
 			select $*
 			f = fopen ifpname "rb"
 			fseek f AnimInfo[2][AnimList.selection] #seek_set
-
-			format "\nAnime: % at [%]\n" AnimList.selected (ftell f)
 			
 			ApplyAnim f ($selection as array) skipPos.checked slidertime AnimInfo[3]
 		
@@ -179,21 +459,20 @@ rollout animateRoll "Animation" (
 	
 	-- Double-click animation list to apply
 	on AnimList doubleclicked idx do (
-		rult = resetPost $selection slidertime
+		local applyNodes = GTAAnim_GetApplyNodes()
+		if applyNodes.count == 0 then return undefined
+		if (getUserProp applyNodes[1] "OrgPos") == undefined then (
+			GTAAnim_StoreOriginalPose applyNodes
+			RecOrg.text = "**"
+		)
+		rult = resetPost applyNodes slidertime
 		if rult == false then RecOrg.text = "M"
-		select $*
-		for i = 1 to $selection.count do (
-			deletekeys $selection[i].pos.controller
-			deletekeys $selection[i].rotation.controller
-			deletekeys $selection[i].scale.controller
-		)--end for i
+		GTAAnim_ClearSelectionKeys applyNodes
 		sliderTime = 0
 		f = fopen ifpname "rb"
 		fseek f AnimInfo[2][AnimList.selection] #seek_set
 
-		format "\nAnime: % at [%]\n" AnimList.selected (ftell f)
-
-		ApplyAnim f ($selection as array) skipPos.checked slidertime AnimInfo[3]
+		ApplyAnim f applyNodes skipPos.checked slidertime AnimInfo[3]
 	
 		fclose f
 		gc()
@@ -218,8 +497,6 @@ rollout animateRoll "Animation" (
 				if rult == false then RecOrg.text = "M"
 			
 				fseek f AnimInfo[2][tt] #seek_set
-
-				format "Anime: % at [%]\n" AnimInfo[1][tt] (ftell f)
 			
 				ApplyAnim f ($selection as array) skipPos.checked slidertime AnimInfo[3]
 
@@ -261,10 +538,103 @@ rollout animateRoll "Animation" (
 			local newNameInput = renameDialogResult
 			
 			if newNameInput != "" and newNameInput != oldName then (
-				AnimInfo[1][selIndex] = newNameInput
-				AnimList.items = AnimInfo[1]
-				AnimList.selection = selIndex
-				format "Renamed: % -> %\n" oldName newNameInput
+				-- Check for duplicate names
+				if findItem AnimInfo[1] newNameInput != 0 then (
+					messagebox ("Animation name '" + newNameInput + "' already exists!") title:"Duplicate Name"
+				) else (
+					try (
+						-- Rebuild IFP with renamed animation
+						tempName = (getFilenamePath ifpname) + "ttemp.bin"
+						ff = fopen tempName "wb"
+						f = fopen ifpname "rb"
+						
+						-- Write header
+						if AnimInfo[3] == 0x33504E41 then (
+							-- SA format
+							writeLong ff AnimInfo[3] #unsigned
+							writeLong ff 0  -- Placeholder
+							writeString ff HInfo[2]
+							for i = 1 to (23 - HInfo[2].count) do writeByte ff 0
+							writeLong ff HInfo[1]
+						) else (
+							-- VC format (not fully supported for rename yet)
+							messagebox "Rename not supported for VC format IFP files yet." title:"Not Supported"
+							fclose f
+							fclose ff
+							deleteFile tempName
+							return undefined
+						)
+						
+						-- Copy all animations, modifying the selected one
+						for i = 1 to AnimInfo[1].count do (
+							fseek f AnimInfo[2][i] #seek_set
+							
+							-- Determine animation data length
+							if i < AnimInfo[1].count then (
+								dataLength = AnimInfo[2][i+1] - AnimInfo[2][i]
+							) else (
+								-- Last animation
+								local animName = readString f
+								local skipBytes = 23 - animName.count
+								fseek f skipBytes #seek_cur
+								local boneCount = readLong f
+								local frameDataSize = readLong f
+								dataLength = 36 + frameDataSize + (36 * boneCount)
+								fseek f AnimInfo[2][i] #seek_set
+							)
+							
+							-- Read animation data
+							animData = #()
+							for b = 1 to dataLength do (
+								append animData (readByte f)
+							)
+							
+							-- If this is the renamed animation, update the name in the data
+							if i == selIndex then (
+								nameBytes = #()
+								for c = 1 to newNameInput.count do (
+									append nameBytes (bit.charasint newNameInput[c])
+								)
+								append nameBytes 0
+								while nameBytes.count < 24 do append nameBytes 0
+								for b = 1 to 24 do (
+									animData[b] = nameBytes[b]
+								)
+							)
+							
+							-- Write animation data
+							for b in animData do (
+								writeByte ff b
+							)
+						)
+						
+						-- Update file length
+						local totalSize = ftell ff
+						fseek ff 4 #seek_set
+						writeLong ff (totalSize - 8)
+						fclose f
+						fclose ff
+						gc()
+						
+						-- Replace original
+						deleteFile ifpname
+						renameFile tempName ifpname
+						
+						-- Reload
+						f = fopen ifpname "rb"
+						HInfo = ReadifpHeader f
+						AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
+						fclose f
+						
+						AnimList.items = AnimInfo[1]
+						AnimList.selection = selIndex
+					) catch (
+						try (fclose f) catch()
+						try (fclose ff) catch()
+						try (deleteFile tempName) catch()
+						messagebox ("Error renaming animation:\n" + (getCurrentException())) title:"Error"
+					)
+				)
 			)
 		)
 	)
@@ -274,14 +644,84 @@ rollout animateRoll "Animation" (
 			messagebox "Please select an animation to delete!" title:"No Selection"
 		) else (
 			animName = AnimList.selected
-			result = queryBox ("Delete animation: " + animName + "?") title:"Confirm Delete"
+			selIndex = AnimList.selection
+			result = queryBox ("Delete animation: " + animName + "?\n\nThis cannot be undone.") title:"Confirm Delete"
 			if result then (
-				deleteItem AnimInfo[1] AnimList.selection
-				deleteItem AnimInfo[2] AnimList.selection
-				HInfo[1] = HInfo[1] - 1
-				AnimList.items = AnimInfo[1]
-				lbl2.text = "Total Animation: " + (HInfo[1] as string)
-				format "Deleted: %\n" animName
+				try (
+					-- Rebuild IFP without deleted animation
+					tempName = (getFilenamePath ifpname) + "ttemp.bin"
+					ff = fopen tempName "wb"
+					f = fopen ifpname "rb"
+					
+					-- Write header with updated count
+					if AnimInfo[3] == 0x33504E41 then (
+						-- SA format
+						writeLong ff AnimInfo[3] #unsigned
+						writeLong ff 0  -- Placeholder
+						writeString ff HInfo[2]
+						for i = 1 to (23 - HInfo[2].count) do writeByte ff 0
+						writeLong ff (HInfo[1] - 1)  -- Decrement count
+					) else (
+						-- VC format
+						messagebox "Delete not supported for VC format IFP files yet." title:"Not Supported"
+						fclose f
+						fclose ff
+						deleteFile tempName
+						return undefined
+					)
+					
+					-- Copy all animations except the deleted one
+					for i = 1 to AnimInfo[1].count do (
+						if i != selIndex then (
+							fseek f AnimInfo[2][i] #seek_set
+							
+							-- Determine animation data length
+							if i < AnimInfo[1].count then (
+								dataLength = AnimInfo[2][i+1] - AnimInfo[2][i]
+							) else (
+								-- Last animation
+								local animName = readString f
+								local skipBytes = 23 - animName.count
+								fseek f skipBytes #seek_cur
+								local boneCount = readLong f
+								local frameDataSize = readLong f
+								dataLength = 36 + frameDataSize + (36 * boneCount)
+								fseek f AnimInfo[2][i] #seek_set
+							)
+							
+							-- Copy animation data
+							for b = 1 to dataLength do (
+								writeByte ff (readByte f)
+							)
+						)
+					)
+					
+					-- Update file length
+					local totalSize = ftell ff
+					fseek ff 4 #seek_set
+					writeLong ff (totalSize - 8)
+					fclose f
+					fclose ff
+					gc()
+					
+					-- Replace original
+					deleteFile ifpname
+					renameFile tempName ifpname
+					
+					-- Reload
+					f = fopen ifpname "rb"
+					HInfo = ReadifpHeader f
+					AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
+					fclose f
+					
+					AnimList.items = AnimInfo[1]
+					lbl2.text = "Total Animation: " + (HInfo[1] as string)
+				) catch (
+					try (fclose f) catch()
+					try (fclose ff) catch()
+					try (deleteFile tempName) catch()
+					messagebox ("Error deleting animation:\n" + (getCurrentException())) title:"Error"
+				)
 			)
 		)
 	)
@@ -293,16 +733,82 @@ rollout animateRoll "Animation" (
 			messagebox "Animation is already at the top!" title:"Can't Move"
 		) else (
 			idx = AnimList.selection
-			-- Swap with previous animation
-			tempName = AnimInfo[1][idx]
-			tempData = AnimInfo[2][idx]
-			AnimInfo[1][idx] = AnimInfo[1][idx-1]
-			AnimInfo[2][idx] = AnimInfo[2][idx-1]
-			AnimInfo[1][idx-1] = tempName
-			AnimInfo[2][idx-1] = tempData
-			AnimList.items = AnimInfo[1]
-			AnimList.selection = idx - 1
-			format "Moved up: %\n" tempName
+			animName = AnimList.selected
+			try (
+				-- Rebuild IFP with animations reordered
+				tempName = (getFilenamePath ifpname) + "ttemp.bin"
+				ff = fopen tempName "wb"
+				f = fopen ifpname "rb"
+				
+				-- Write header
+				if AnimInfo[3] == 0x33504E41 then (
+					writeLong ff AnimInfo[3] #unsigned
+					writeLong ff 0  -- Placeholder
+					writeString ff HInfo[2]
+					for i = 1 to (23 - HInfo[2].count) do writeByte ff 0
+					writeLong ff HInfo[1]
+				) else (
+					messagebox "Move not supported for VC format IFP files yet." title:"Not Supported"
+					fclose f
+					fclose ff
+					deleteFile tempName
+					return undefined
+				)
+				
+				-- Write animations in new order (swap idx with idx-1)
+				for i = 1 to AnimInfo[1].count do (
+					-- Determine which animation to write
+					local srcIdx = i
+					if i == idx - 1 then srcIdx = idx      -- Write selected animation here
+					else if i == idx then srcIdx = idx - 1  -- Write previous animation here
+					
+					fseek f AnimInfo[2][srcIdx] #seek_set
+					
+					-- Determine animation data length
+					if srcIdx < AnimInfo[1].count then (
+						dataLength = AnimInfo[2][srcIdx+1] - AnimInfo[2][srcIdx]
+					) else (
+						local animName = readString f
+						local skipBytes = 23 - animName.count
+						fseek f skipBytes #seek_cur
+						local boneCount = readLong f
+						local frameDataSize = readLong f
+						dataLength = 36 + frameDataSize + (36 * boneCount)
+						fseek f AnimInfo[2][srcIdx] #seek_set
+					)
+					
+					-- Copy animation data
+					for b = 1 to dataLength do (
+						writeByte ff (readByte f)
+					)
+				)
+				
+				-- Update file length
+				local totalSize = ftell ff
+				fseek ff 4 #seek_set
+				writeLong ff (totalSize - 8)
+				fclose f
+				fclose ff
+				gc()
+				
+				-- Replace original
+				deleteFile ifpname
+				renameFile tempName ifpname
+				
+				-- Reload
+				f = fopen ifpname "rb"
+				HInfo = ReadifpHeader f
+				AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
+				fclose f
+				
+				AnimList.items = AnimInfo[1]
+				AnimList.selection = idx - 1
+			) catch (
+				try (fclose f) catch()
+				try (fclose ff) catch()
+				try (deleteFile tempName) catch()
+				messagebox ("Error moving animation:\n" + (getCurrentException())) title:"Error"
+			)
 		)
 	)
 	
@@ -313,16 +819,82 @@ rollout animateRoll "Animation" (
 			messagebox "Animation is already at the bottom!" title:"Can't Move"
 		) else (
 			idx = AnimList.selection
-			-- Swap with next animation
-			tempName = AnimInfo[1][idx]
-			tempData = AnimInfo[2][idx]
-			AnimInfo[1][idx] = AnimInfo[1][idx+1]
-			AnimInfo[2][idx] = AnimInfo[2][idx+1]
-			AnimInfo[1][idx+1] = tempName
-			AnimInfo[2][idx+1] = tempData
-			AnimList.items = AnimInfo[1]
-			AnimList.selection = idx + 1
-			format "Moved down: %\n" tempName
+			animName = AnimList.selected
+			try (
+				-- Rebuild IFP with animations reordered
+				tempName = (getFilenamePath ifpname) + "ttemp.bin"
+				ff = fopen tempName "wb"
+				f = fopen ifpname "rb"
+				
+				-- Write header
+				if AnimInfo[3] == 0x33504E41 then (
+					writeLong ff AnimInfo[3] #unsigned
+					writeLong ff 0  -- Placeholder
+					writeString ff HInfo[2]
+					for i = 1 to (23 - HInfo[2].count) do writeByte ff 0
+					writeLong ff HInfo[1]
+				) else (
+					messagebox "Move not supported for VC format IFP files yet." title:"Not Supported"
+					fclose f
+					fclose ff
+					deleteFile tempName
+					return undefined
+				)
+				
+				-- Write animations in new order (swap idx with idx+1)
+				for i = 1 to AnimInfo[1].count do (
+					-- Determine which animation to write
+					local srcIdx = i
+					if i == idx then srcIdx = idx + 1      -- Write next animation here
+					else if i == idx + 1 then srcIdx = idx  -- Write selected animation here
+					
+					fseek f AnimInfo[2][srcIdx] #seek_set
+					
+					-- Determine animation data length
+					if srcIdx < AnimInfo[1].count then (
+						dataLength = AnimInfo[2][srcIdx+1] - AnimInfo[2][srcIdx]
+					) else (
+						local animName = readString f
+						local skipBytes = 23 - animName.count
+						fseek f skipBytes #seek_cur
+						local boneCount = readLong f
+						local frameDataSize = readLong f
+						dataLength = 36 + frameDataSize + (36 * boneCount)
+						fseek f AnimInfo[2][srcIdx] #seek_set
+					)
+					
+					-- Copy animation data
+					for b = 1 to dataLength do (
+						writeByte ff (readByte f)
+					)
+				)
+				
+				-- Update file length
+				local totalSize = ftell ff
+				fseek ff 4 #seek_set
+				writeLong ff (totalSize - 8)
+				fclose f
+				fclose ff
+				gc()
+				
+				-- Replace original
+				deleteFile ifpname
+				renameFile tempName ifpname
+				
+				-- Reload
+				f = fopen ifpname "rb"
+				HInfo = ReadifpHeader f
+				AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
+				fclose f
+				
+				AnimList.items = AnimInfo[1]
+				AnimList.selection = idx + 1
+			) catch (
+				try (fclose f) catch()
+				try (fclose ff) catch()
+				try (deleteFile tempName) catch()
+				messagebox ("Error moving animation:\n" + (getCurrentException())) title:"Error"
+			)
 		)
 	)
 	
@@ -330,20 +902,14 @@ rollout animateRoll "Animation" (
 		if ifpname == undefined then (
 			messagebox "Please load an IFP file first!" title:"No IFP Loaded"
 		) else if AnimInfo[3] != 0x33504E41 then (
-			messagebox "Save New only works with SA format IFP files currently.\n\nVC format support coming soon." title:"Format Not Supported"
+			messagebox "Add New only works with SA format IFP files currently.\n\nVC format support coming soon." title:"Format Not Supported"
 		) else (
-			select $*
-			if $selection.count == 0 then (
-				messagebox "No objects selected! Select bones with BoneID properties." title:"No Selection"
+			local exportNodes = GTAAnim_GetSceneBoneNodes()
+			if exportNodes.count == 0 then (
+				messagebox "No bones with BoneID found in the scene!\n\nSet BoneID user properties on bones.\n\nExample: setUserProp $myBone \"BoneID\" 0" title:"No Bones"
 			) else (
-				-- Filter to only objects with BoneID
-				for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
-				
-				if $selection.count == 0 then (
-					messagebox "No bones with BoneID found! Set BoneID user properties on bones." title:"No Bones"
-				) else (
 					-- Create input dialog
-					rollout newAnimDialog "Save New Animation" (
+					rollout newAnimDialog "Add New Animation" (
 						local newAnimResult = "NEW_ANIM"
 						edittext txtName "Animation name:" text:"NEW_ANIM" fieldwidth:150
 						button btnOK "OK" width:80 align:#center
@@ -372,278 +938,61 @@ rollout animateRoll "Animation" (
 							messagebox ("Animation '" + newAnimName + "' already exists!") title:"Duplicate Name"
 						) else (
 							try (
-								-- Export animation to temp file
-								tempFile = (getFilenamePath ifpname) + "temp_new_anim.bin"
-								ff = fopen tempFile "wb"
+								-- Rebuild IFP file with new animation appended
 								
-								local animLength = ExpsaIFP ff ($selection as array) newAnimName
-								
-								fclose ff
-								
-								if animLength != undefined then (
-									-- Read animation data back
-									ff = fopen tempFile "rb"
-									newAnimData = #()
-									fseek ff 0 #seek_end
-									dataSize = ftell ff
-									
-									if dataSize > 28 then (  -- Minimum valid SA animation size
-										fseek ff 0 #seek_set
-										for i = 1 to dataSize do (
-											append newAnimData (readByte ff)
-										)
-										fclose ff
-										deleteFile tempFile
-										
-										-- Validate: read back name from first 24 bytes
-										validName = ""
-										for b = 1 to 24 do (
-											if newAnimData[b] == 0 then exit
-											validName += bit.intAsChar newAnimData[b]
-										)
-										
-										format "Exported animation data: name='%', size=%\n" validName dataSize
-										
-										if validName == newAnimName then (
-											-- Store in pending array (offset will be updated when saved)
-											append PendingAnimData newAnimData
-											
-											-- Add to AnimInfo arrays
-											append AnimInfo[1] newAnimName
-											append AnimInfo[2] -1  -- Placeholder offset, will be set during Save File
-											
-											-- Update UI
-											AnimList.items = AnimInfo[1]
-											AnimList.selection = AnimInfo[1].count
-											lbl2.text = "Total Animation: " + (AnimInfo[1].count as string)
-											
-											format "Added new animation: % (% bytes, pending save)\n" newAnimName dataSize
-											format "Click 'Save File' to write changes to disk.\n"
-											
-											messagebox ("Added new animation: " + newAnimName + "\n\nClick 'Save File' button to write to disk.") title:"Animation Added"
-										) else (
-											messagebox ("Export validation failed!\n\nExpected name: " + newAnimName + "\nGot name: " + validName) title:"Export Error"
-											format "Export validation failed: expected '%', got '%'\n" newAnimName validName
-										)
-									) else (
-										fclose ff
-										deleteFile tempFile
-										messagebox ("Animation data too small (" + (dataSize as string) + " bytes)\n\nMake sure bones have animation keys.") title:"Export Failed"
-										format "Export failed: data too small (% bytes)\n" dataSize
-									)
-								) else (
-									fclose ff
-									deleteFile tempFile
-									messagebox "Failed to export animation data!" title:"Export Failed"
+								f = fopen ifpname "rb+"
+								if f == undefined then (
+									messagebox "Failed to open IFP file for appending." title:"I/O Error"
+									return undefined
 								)
 								
+								local headerID = readLong f
+								if headerID != 0x33504E41 then (
+									fclose f
+									messagebox "Loaded file is not SA format (ANP3)." title:"Format Error"
+									return undefined
+								)
+								
+								local currentFileLength = readLong f
+								fseek f 24 #seek_cur
+								local currentAnimCount = readLong f
+								
+								-- Append at the logical end of animation data, not EOF.
+								fseek f (currentFileLength + 8) #seek_set
+								
+								animLength = ExpsaIFP f exportNodes newAnimName
+								if animLength == undefined then (
+									fclose f
+									messagebox "Failed to export animation data!\n\nCheck that the selected bones have animation keys." title:"Export Failed"
+									return undefined
+								)
+								
+								local totalSize = ftell f
+								fseek f 4 #seek_set
+								writeLong f (totalSize - 8)
+								fseek f 32 #seek_set
+								writeLong f (currentAnimCount + 1)
+								fclose f
+								gc()
+								
+								-- Reload file info
+								f = fopen ifpname "rb"
+								HInfo = ReadifpHeader f
+								AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
+								fclose f
+								
+								-- Update UI
+								AnimList.items = AnimInfo[1]
+								AnimList.selection = AnimInfo[1].count
+								lbl2.text = "Total Animation: " + (HInfo[1] as string)
+								
+								messagebox ("Animation '" + newAnimName + "' added successfully!") title:"Success"
+								
 							) catch (
-								try (fclose ff) catch()
-								try (deleteFile tempFile) catch()
-								messagebox ("Error creating animation:\n" + (getCurrentException())) title:"Export Error"
-								format "Export error: %\n" (getCurrentException())
+								try (fclose f) catch()
+								messagebox ("Error adding animation:\n" + (getCurrentException())) title:"Error"
 							)
-						)
 					)
-				)
-			)
-		)
-	)
-	
-	-- Save File button - Rebuilds entire IFP after rename/delete/move operations
-	on btnSaveFile pressed do (
-		if ifpname == undefined then (
-			messagebox "No IFP file loaded!" title:"No File"
-		) else (
-			result = queryBox "Save all management changes (rename/delete/move) to file?\n\nThis will rebuild the entire IFP file." title:"Confirm Save"
-			if result then (
-				try (
-					-- Backup original file
-					backupName = ifpname + ".bak"
-					DOSCommand ("copy \"" + ifpname + "\" \"" + backupName + "\"")
-					
-					-- Create a sorted mapping to read animations in physical file order
-					f = fopen ifpname "rb"
-					
-					-- Build array of [index, offset] pairs, separate pending from existing
-					sortedMapping = #()
-					pendingIndices = #()
-					
-					for i = 1 to AnimInfo[1].count do (
-						if AnimInfo[2][i] == -1 then (
-							-- This is a pending new animation
-							append pendingIndices i
-						) else (
-							-- Existing animation in file
-							append sortedMapping #(i, AnimInfo[2][i])
-						)
-					)
-					
-					-- Sort existing animations by offset (physical file order)
-					qsort sortedMapping (fn cmp a b = ( if a[2] < b[2] then -1 else if a[2] > b[2] then 1 else 0 ))
-					
-					-- Read all animation data - build properly indexed array
-					animDataArray = #()
-					for i = 1 to AnimInfo[1].count do append animDataArray undefined  -- Initialize all slots
-					
-					-- Read existing animations from file
-					for i = 1 to sortedMapping.count do (
-						origIndex = sortedMapping[i][1]  -- Original logical index
-						offset = sortedMapping[i][2]      -- Physical offset in file
-						
-						fseek f offset #seek_set
-						
-						-- Determine animation data length from physical order
-						if i < sortedMapping.count then (
-							dataLength = sortedMapping[i+1][2] - offset
-						) else (
-							-- Last animation: calculate from header instead of EOF (file may have padding)
-							fseek f offset #seek_set
-							-- Read name field
-							local animName = readString f
-							local skipBytes = 23 - animName.count
-							fseek f skipBytes #seek_cur
-							-- Read bone count and frame data size
-							local boneCount = readLong f
-							local frameDataSize = readLong f
-							-- Total animation size: name(24) + boneCount(4) + frameSize(4) + unknown(4) + frameData + boneHeaders
-							dataLength = 36 + frameDataSize + (36 * boneCount)
-							format "Last animation '%': calculated length %L bytes (not EOF)\n" animName dataLength
-						)
-						
-						-- Read animation data
-						fseek f offset #seek_set
-						animData = #()
-						for b = 1 to dataLength do (
-							append animData (readByte f)
-						)
-						
-						-- Store in logical position
-						animDataArray[origIndex] = animData
-					)
-					fclose f
-					
-					-- Add pending animations from memory
-					local pendingIdx = 1
-					for idx in pendingIndices do (
-						animDataArray[idx] = PendingAnimData[pendingIdx]
-						pendingIdx += 1
-					)
-					
-					-- Write new IFP file with animations in new order
-					tempName = (getFilenamePath ifpname) + "temp_rebuild.ifp"
-					ff = fopen tempName "wb"
-					
-					if ff == undefined then (
-						messagebox ("Failed to create temp file!\nPath: " + tempName + "\n\nCheck if directory exists and is writable.") title:"File Creation Error"
-						try (fclose f) catch()
-						return undefined
-					)
-					
-					if AnimInfo[3] == 0x33504E41 then (
-						-- SA format header
-						writeLong ff AnimInfo[3] #unsigned  -- ANP3
-						writeLong ff 0  -- File length placeholder
-						writeString ff HInfo[2]  -- Name string (null-terminated)
-						skipbyte = 23 - HInfo[2].count
-						for i = 1 to skipbyte do writeByte ff 0  -- Pad to 24 bytes total
-						writeLong ff AnimInfo[1].count  -- Animation count
-					) else (
-						-- VC format header
-						writeLong ff AnimInfo[3] #unsigned  -- ANPK
-						writeLong ff 0  -- File length placeholder
-						writeLong ff 0x4F464E49 #unsigned  -- INFO
-						infoLength = HInfo[2].count + 1 + 4  -- string + null + count
-						skipbyte = 4 - (mod (HInfo[2].count + 1) 4)
-						if skipbyte != 4 then infoLength += skipbyte
-						writeLong ff infoLength
-						writeLong ff AnimInfo[1].count  -- Animation count
-						writeString ff HInfo[2]  -- Name string
-						if skipbyte != 4 then (
-							for i = 1 to skipbyte do writeByte ff 0  -- 4-byte alignment padding
-						)
-					)
-					
-					-- Write all animations in new order
-					for i = 1 to animDataArray.count do (
-						animData = animDataArray[i]
-						
-						if animData == undefined then (
-							format "ERROR: Animation % has undefined data!\n" i
-							continue
-						)
-						
-						-- Always update embedded animation name (for renames and new animations)
-						if AnimInfo[3] == 0x33504E41 then (
-							-- SA format: name is first 24 bytes of animation data
-							newName = AnimInfo[1][i]
-							nameBytes = #()
-							
-							-- Convert string to byte array
-							for c = 1 to newName.count do (
-								append nameBytes (bit.charasint newName[c])
-							)
-							append nameBytes 0  -- Null terminator
-							
-							-- Pad to 24 bytes
-							while nameBytes.count < 24 do append nameBytes 0
-							
-							-- Replace first 24 bytes with current name from AnimInfo
-							for b = 1 to 24 do (
-								animData[b] = nameBytes[b]
-							)
-							
-							-- Debug: Verify embedded name
-							local embeddedName = ""
-							for b = 1 to 24 do (
-								if animData[b] == 0 then exit
-								embeddedName += bit.intAsChar animData[b]
-							)
-							format "  Embedded name in data: '%'\n" embeddedName
-							
-						) else (
-							-- VC format: NAME chunk structure - more complex, skip for now
-							-- Would need to parse NAME chunk and adjust lengths
-						)
-						
-						-- Write animation data
-						for b in animData do (
-							writeByte ff b
-						)
-					)
-					
-					-- Update file length in header
-					local totalSize = ftell ff
-					fileLength = totalSize - 8
-					fseek ff 4 #seek_set
-					writeLong ff fileLength
-					fclose ff
-					
-					-- Backup and replace original with rebuilt file
-					DOSCommand ("copy \"" + ifpname + "\" \"" + backupName + "\"")
-					deleteFile ifpname
-					renameFile tempName ifpname
-					
-					-- Reload file to rebuild AnimInfo with correct offsets
-					f = fopen ifpname "rb"
-					HInfo = ReadifpHeader f
-					AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
-					fclose f
-					
-					AnimList.items = AnimInfo[1]
-					lbl2.text = "Total Animation: " + (HInfo[1] as string)
-					
-					-- Clear pending animations after successful save
-					PendingAnimData = #()
-					local msg = "File saved successfully with " + (AnimInfo[1].count as string) + " animations!\n\nBackup: " + (filenameFromPath backupName)
-					messagebox msg title:"Save Complete"
-					
-				) catch (
-					try (fclose f) catch()
-					try (fclose ff) catch()
-					local errMsg = getCurrentException()
-					format "\n!!! SAVE ERROR !!!\n%\n" errMsg
-					messagebox ("Error saving file:\n" + errMsg) title:"Save Failed"
 				)
 			)
 		)
@@ -666,9 +1015,9 @@ rollout animateRoll "Animation" (
 	
 	-- Replace animation in loaded IFP file
 	on ReplaceAnim pressed do (
-		select $*
+		local exportNodes = GTAAnim_GetSceneBoneNodes()
 		sliderTime = 0
-		if (AnimList.selection != 0)AND($selection.count >0) then (
+		if (AnimList.selection != 0)AND(exportNodes.count > 0) then (
 			OK2Append = false
 			-- Verify format matches: State 1 = ANP3 (0x33504E41), State 2 = ANPK (0x4B504E41)
 			if (formatType.state == 2)AND(AnimInfo[3] == 0x4B504E41) then OK2Append = true
@@ -676,89 +1025,114 @@ rollout animateRoll "Animation" (
 			if OK2Append == false then (
 				messagebox "Cannot replace animation:\n\nFile format does not match selected format.\n\nANP3 (SA) and ANPK (III/VC) cannot be mixed." title: "IFP Format Mismatch"
 			) else (
-				for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
+				try (
+					local tempName = (getFilenamePath ifpname) + "ttemp.bin"
+					local selIndex = AnimList.selection
+					local ff = fopen tempName "wb"
+					local f = fopen ifpname "rb"
+					if (ff == undefined) or (f == undefined) then (
+						try (fclose ff) catch()
+						try (fclose f) catch()
+						messagebox "Could not open files for replace operation." title:"Replace Error"
+						return undefined
+					)
 
-				try (	--undefined*undefined
-					Sname = (getFilenamePath ifpname) + "ttemp.bin"
-					format "\nReplace Anime: % at [%]\n" AnimList.selected AnimInfo[2][AnimList.selection]
-					ff = fopen Sname "wb"
-					f = fopen ifpname "rb"
-					fseek f 0 #seek_end
-					edf = ftell f
-					fseek f 0 #seek_set
-					for i = 1 to AnimInfo[2][AnimList.selection] do (
-						writebyte ff (readByte f)
-					)--end for i
-		
-					if AnimInfo[3] == 0x33504E41 then thisLength = ExpsaIFP ff ($selection as array) AnimList.selected
-					else  thisLength = expAnim ff ($selection as array) useBoneID.checked AnimList.selected
-		
-					if AnimList.selection != AnimInfo[2].count then (
-						fseek f AnimInfo[2][(AnimList.selection + 1)] #seek_set
-						for i = AnimInfo[2][(AnimList.selection + 1)] to (edf - 1) do (
-							writebyte ff (readByte f)
-						)--end for i
-					)--end if
-		
-					fclose f
-					animLength = (ftell ff) - 8
+					if AnimInfo[3] == 0x33504E41 then (
+						writeLong ff AnimInfo[3] #unsigned
+						writeLong ff 0
+						writeString ff HInfo[2]
+						for i = 1 to (23 - HInfo[2].count) do writeByte ff 0
+						writeLong ff HInfo[1]
+					) else (
+						writeLong ff AnimInfo[3] #unsigned
+						writeLong ff 0
+						writeLong ff 0x4F464E49 #unsigned
+						local infoLength = HInfo[2].count + 1 + 4
+						local skipbyte = 4 - (mod (HInfo[2].count + 1) 4)
+						if skipbyte != 4 then infoLength += skipbyte
+						writeLong ff infoLength
+						writeLong ff HInfo[1]
+						writeString ff HInfo[2]
+						if skipbyte != 4 then for i = 1 to skipbyte do writeByte ff 0
+					)
+
+					for i = 1 to AnimInfo[1].count do (
+						if i == selIndex then (
+							local thisLength = undefined
+							if AnimInfo[3] == 0x33504E41 then thisLength = ExpsaIFP ff exportNodes AnimList.selected
+							else thisLength = expAnim ff exportNodes useBoneID.checked AnimList.selected
+							if thisLength == undefined then (
+								fclose f
+								fclose ff
+								deleteFile tempName
+								messagebox "Replacement export failed. Check that the selected bones have animation keys." title:"Replace Error"
+								return undefined
+							)
+						) else (
+							fseek f AnimInfo[2][i] #seek_set
+							local dataLength = 0
+							if i < AnimInfo[1].count then (
+								dataLength = AnimInfo[2][i+1] - AnimInfo[2][i]
+							) else if AnimInfo[3] == 0x33504E41 then (
+								local animName = readString f
+								local skipBytes = 23 - animName.count
+								fseek f skipBytes #seek_cur
+								local boneCount = readLong f
+								local frameDataSize = readLong f
+								dataLength = 36 + frameDataSize + (36 * boneCount)
+								fseek f AnimInfo[2][i] #seek_set
+							) else (
+								fseek f AnimInfo[2][i] #seek_set
+								if (readLong f) != 0x454D414E then (
+									fclose f
+									fclose ff
+									deleteFile tempName
+									messagebox "Could not parse ANPK animation during replace." title:"Replace Error"
+									return undefined
+								)
+								local nameLength = readLong f
+								local skipBytes = 4 - (mod nameLength 4)
+								if (skipBytes > 0) and (skipBytes < 4) then fseek f skipBytes #seek_cur
+								if (readLong f) != 0x4E414744 then (
+									fclose f
+									fclose ff
+									deleteFile tempName
+									messagebox "Could not parse ANPK DGAN header during replace." title:"Replace Error"
+									return undefined
+								)
+								local animLength = readLong f
+								dataLength = animLength + 16 + nameLength
+								if (skipBytes > 0) and (skipBytes < 4) then dataLength += skipBytes
+								fseek f AnimInfo[2][i] #seek_set
+							)
+
+							for b = 1 to dataLength do writeByte ff (readByte f)
+						)
+					)
+
+					local totalSize = ftell ff
 					fseek ff 4 #seek_set
-					writeLong ff animLength
+					writeLong ff (totalSize - 8)
+					fclose f
 					fclose ff
 					gc()
-			
+
 					deleteFile ifpname
-					renameFile Sname ifpname
-			
+					renameFile tempName ifpname
+
 					f = fopen ifpname "rb"
 					HInfo = ReadifpHeader f
 					AnimInfo = ifpAnimInfo f HInfo[1] HInfo[3]
 					fclose f
+					AnimList.items = AnimInfo[1]
+					AnimList.selection = selIndex
 
-					format "DONE!!\n\n"	
-
+					format "DONE!!\n\n"
 				) catch (
-					fclose ff
-					fclose f
-					-----------------------
-					--This is GMax output--
-					-----------------------
-					Sname = (getFilenamePath ifpname) + "ReplaceIFP.txt"
-					ss = "" as stringstream
-
-					if AnimInfo[3] == 0x33504E4 then thisLength = gExpsaIFP ss ($selection as array) AnimList.selected
-					else  thisLength = gm_expAnim ss $selection useBoneID.checked AnimList.selected
-
-					f = fopen ifpname "rb"
-
-					if AnimList.selection != AnimInfo[2].count then (
-						oldLength = AnimInfo[2][(AnimList.selection + 1)] - AnimInfo[2][AnimList.selection]
-					) else (
-						fseek f 0 #seek_end
-						oldLength = (ftell f ) - AnimInfo[2][AnimList.selection]
-					)
-					thisoffset = thisLength - oldLength
-
-					fseek f 4 #seek_set
-					IFPLength = readLong f
-					readLong f				
-					infolength = readLong f
-
-					clearlistener()
-					format "<!-- path=\"%\" -->\n" Sname
-					format"//\n//\n//This is Header Section\n//Please Replace this over the original Header\n"  
-
-					if AnimInfo[3] == 0x33504E41 then (
-						format "c 4\nANP3\ni 1\n%\n" (IFPLength + thisoffset)
-						format "c 24\n%\ni 1\n%\n//\n//\n" HInfo[2] HInfo[1]
-					) else (
-						format "c 4\nANPK\ni 1\n%\n" (IFPLength + thisoffset)
-						format "c 4\nINFO\ni 2\n% %\n" infolength (readLong f)
-						format "c %\n%\n//\n//\n" (infolength - 4) (readString f)
-					)
-					format "%\n//" (ss as string)
-
-					fclose f
+					try (fclose f) catch()
+					try (fclose ff) catch()
+					try (deleteFile tempName) catch()
+					messagebox ("Error replacing animation:\n" + (getCurrentException())) title:"Replace Error"
 				)
 				gc()
 			)
@@ -767,69 +1141,94 @@ rollout animateRoll "Animation" (
 	
 	-- Export selection as new IFP file
 	on saveAnim pressed do (
-		if (AnimList.selection != 0)AND($selection.count >0) then (
+		local exportNodes = GTAAnim_GetSceneBoneNodes()
+		if (AnimList.selection != 0)AND(exportNodes.count >0) then (
 			Sname = getSaveFileName caption:"Save GTA Animation file" types:"IFP animation (*.ifp)|*.ifp"
 			if Sname != undefined then (
-				for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
-			
-				try (	--undefined*undefined
-					f = fopen Sname "wb"
-
-					if formatType.state == 1 then (   					--ANP3 (SA)
-						writeLong f 0x33504E41		--ANP3
-						writeLong f 0
-						writeString f "KamMaxScriptExp"
-						for i = 1 to 8 do ( writeByte f 0 )
-						writeLong f 1
-
-						thisLength = ExpsaIFP f ($selection as array) AnimList.selected
-						size = ftell f
-						fseek f 4 #seek_set
-						writeLong f (size - 8)
-					) else (   					   									--ANPK (III/VC)
-						writeLong f 0x4B504E41		--ANPK
-						writeLong f 0
-						writeLong f 0x4F464E49		--INFO
-						writeLong f 20
-						writeLong f 1
-						writeString f "KamMaxScriptExp"
-			
-						thisLength = expAnim f ($selection as array) useBoneID.checked AnimList.selected
-						size = ftell f
-						fseek f 4 #seek_set
-						writeLong f (size - 8)
+				if exportNodes.count == 0 then (
+					messagebox "No bones with BoneID found in the scene!\n\nSet BoneID user properties on bones.\n\nExample: setUserProp $myBone \"BoneID\" 0" title:"No Bones"
+				) else (
+					-- Check for animation keys
+					local hasKeys = false
+					local keyInfo = ""
+					for obj in exportNodes do (
+						local rotKeys = obj.rotation.controller.keys.count
+						local posKeys = obj.pos.controller.keys.count
+						keyInfo += "  " + obj.name + ": " + (rotKeys as string) + " rot, " + (posKeys as string) + " pos keys\n"
+						if rotKeys > 0 then hasKeys = true
 					)
-					format "Size:%\n" (thisLength as integer)
-					format "DONE!!\n\n"
-					fclose f	
-				) catch (
-					fclose ff
-					fclose f
-					-----------------------
-					--This is GMax output--
-					-----------------------
-					Sname = (substring Sname 1 (Sname.count - 4)) + ".txt"
-					ss = "" as stringstream
+					
+					if not hasKeys then (
+						messagebox ("No rotation keys found on any bones!\n\nBones checked:\n" + keyInfo + "\nYou must set rotation keyframes before exporting.") title:"No Keys"
+					) else (
+						try (	--undefined*undefined
+							f = fopen Sname "wb"
 
-					clearlistener()
-					format "<!-- path=\"%\" -->\n" Sname
-					format"//\n//\n//This is Header Section\n"  
+							if formatType.state == 1 then (   					--ANP3 (SA)
+								local exportAnimName = GTAAnim_GetNameFromPath Sname maxLen:23
+								GTAAnim_WriteSingleIFPHeader f 0x33504E41 Sname
+								thisLength = ExpsaIFP f exportNodes exportAnimName
+								
+								if thisLength == undefined then (
+									fclose f
+									deleteFile Sname
+									messagebox "Export failed - no animation data!\n\nCheck that bones have rotation keyframes." title:"Export Failed"
+								) else (
+									size = ftell f
+									fseek f 4 #seek_set
+									writeLong f (size - 8)
+									fclose f
+								)
+							) else (   					   									--ANPK (III/VC)
+								writeLong f 0x4B504E41		--ANPK
+								writeLong f 0
+								writeLong f 0x4F464E49		--INFO
+								writeLong f 20
+								writeLong f 1
+								writeString f "KamMaxScriptExp"
+								thisLength = expAnim f exportNodes useBoneID.checked AnimList.selected
+								
+								if thisLength == undefined then (
+									fclose f
+									deleteFile Sname
+									messagebox "Export failed - no animation data!\n\nCheck that bones have rotation keyframes." title:"Export Failed"
+								) else (
+									size = ftell f
+									fseek f 4 #seek_set
+									writeLong f (size - 8)
+									fclose f
+								)
+							)
+						) catch (
+							try (fclose f) catch()
+							messagebox ("Error exporting IFP:\n" + (getCurrentException())) title:"Export Error"
+							-----------------------
+							--This is GMax output--
+							-----------------------
+							Sname = (substring Sname 1 (Sname.count - 4)) + ".txt"
+							ss = "" as stringstream
 
-					if formatType.state == 1 then (   					--ANP3 (SA)
-						thisLength = gExpsaIFP ss ($selection as array) AnimList.selected
-						format "c 4\nANP3\ni 1\n%\n" (thisLength + 28)
-						format "c 24\nKamMaxScriptExp\n//\n//\n"
-						format "i 1\n1\n"
-					) else (																		--ANPK (III/VC)
-						thisLength = gm_expAnim ss ($selection as array) useBoneID.checked AnimList.selected
-						format "c 4\nANPK\ni 1\n%\n" (thisLength + 28)
-						format "c 4\nINFO\ni 2\n20 1\n"
-						format "c 16\nKamMaxScriptExp\n//\n//\n"
-					)	
+							clearlistener()
+							format "<!-- path=\"%\" -->\n" Sname
+							format"//\n//\n//This is Header Section\n"  
 
-					format "%\n//" (ss as string)
-				)--end try/catch
-				gc()
+							if formatType.state == 1 then (   					--ANP3 (SA)
+								thisLength = gExpsaIFP ss exportNodes (GTAAnim_GetNameFromPath Sname maxLen:23)
+								format "c 4\nANP3\ni 1\n%\n" (thisLength + 28)
+								format "c 24\n%\n//\n//\n" (GTAAnim_GetNameFromPath Sname maxLen:23)
+								format "i 1\n1\n"
+							) else (																		--ANPK (III/VC)
+								thisLength = gm_expAnim ss exportNodes useBoneID.checked AnimList.selected
+								format "c 4\nANPK\ni 1\n%\n" (thisLength + 28)
+								format "c 4\nINFO\ni 2\n20 1\n"
+								format "c 16\nKamMaxScriptExp\n//\n//\n"
+							)	
+
+							format "%\n//" (ss as string)
+						)--end try/catch
+						gc()
+					)
+				)
 			)--end if Sname
 		)--end if AnimList.selection
 	)--end on saveAnim
@@ -837,7 +1236,128 @@ rollout animateRoll "Animation" (
 
 /*
 =============================================================================
-   SECTION 2: ABOUT
+	SECTION 2: NORMALIZATION
+	Targets already GTA-compatible hierarchies and fixes root-space issues.
+=============================================================================
+*/
+
+rollout normalizeRoll "Normalize" (
+	local pickedRoot = undefined
+
+	label lblScope "For already-mapped GTA hierarchies only." align:#center
+	label lblScope2 "This fixes root facing/motion, not foreign bone mapping." align:#center
+	button btnUseSelection "Use Selected Root" width:140 align:#center tooltip:"Pick a node from the animated GTA hierarchy"
+	label lblRoot "Root: <none>" align:#left offset:[8,0]
+	checkbox useAnimRange "Use animation range" checked:true align:#center
+	spinner startFrame "Start" fieldwidth:40 type:#integer range:[0,100000,0] across:2 enabled:false
+	spinner endFrame "End" fieldwidth:40 type:#integer range:[0,100000,100] enabled:false
+	spinner yawDegrees "Yaw Degrees" fieldwidth:50 type:#float range:[-360.0,360.0,180.0] align:#left tooltip:"180 fixes the common backwards-facing case"
+	checkbox rotateHeading "Rotate root heading" checked:true align:#left tooltip:"Flip the character's facing direction"
+	checkbox rotateMotion "Rotate travel path" checked:false align:#left tooltip:"For true locomotion clips only. Leave OFF for in-place dances or hip-compensated animations."
+	button btnNormalize "Normalize Root Facing" width:160 align:#center
+	label lblSpacerNorm "" height:8
+	radioButtons exportFormat "Export Format:" labels:#("ANP3 (SA)", "ANPK (III/VC)") columns:2 default:1 align:#center
+	checkbox useBoneIDsForANPK "Use BoneID for ANPK" checked:false align:#center enabled:false
+	button btnNormalizeExport "Normalize + Export" width:160 align:#center tooltip:"Applies normalization, then exports a fresh IFP file"
+
+	fn RefreshRangeUI = (
+		local startVal = 0
+		local endVal = 100
+		try (
+			startVal = GTAAnim_GetFrameFromTime animationRange.start
+			endVal = GTAAnim_GetFrameFromTime animationRange.end
+		) catch ()
+		startFrame.value = startVal
+		endFrame.value = endVal
+		startFrame.enabled = not useAnimRange.checked
+		endFrame.enabled = not useAnimRange.checked
+	)
+
+	fn SetPickedRoot rootObj = (
+		pickedRoot = rootObj
+		if pickedRoot == undefined then lblRoot.text = "Root: <none>"
+		else lblRoot.text = "Root: " + (GTAAnim_FindGTARoot pickedRoot).name
+	)
+
+	fn GetRootFromSelection = (
+		if selection.count != 1 then return undefined
+		selection[1]
+	)
+
+	fn GetStartFrameValue = (
+		if useAnimRange.checked then GTAAnim_GetFrameFromTime animationRange.start else startFrame.value
+	)
+
+	fn GetEndFrameValue = (
+		if useAnimRange.checked then GTAAnim_GetFrameFromTime animationRange.end else endFrame.value
+	)
+
+	on normalizeRoll open do (
+		RefreshRangeUI()
+		if selection.count == 1 then SetPickedRoot selection[1]
+	)
+
+	on useAnimRange changed state do RefreshRangeUI()
+
+	on exportFormat changed state do (
+		useBoneIDsForANPK.enabled = (state == 2)
+	)
+
+	on btnUseSelection pressed do (
+		local rootObj = GetRootFromSelection()
+		if rootObj == undefined then (
+			messagebox "Select exactly one node from the GTA hierarchy first." title:"Normalize"
+		) else (
+			SetPickedRoot rootObj
+		)
+	)
+
+	on btnNormalize pressed do (
+		if pickedRoot == undefined then (
+			messagebox "Pick a GTA hierarchy root first." title:"Normalize"
+		) else (
+			local startVal = GetStartFrameValue()
+			local endVal = GetEndFrameValue()
+			if endVal < startVal then (
+				messagebox "End frame must be greater than or equal to start frame." title:"Normalize"
+			) else if (rotateHeading.checked == false) and (rotateMotion.checked == false) then (
+				messagebox "Enable at least one normalization option." title:"Normalize"
+			) else (
+				local result = GTAAnim_NormalizeRootFacing pickedRoot yawDegrees.value startVal endVal rotateMotion.checked rotateHeading.checked
+				if result[1] == true then messagebox result[2] title:"Normalize"
+				else messagebox result[2] title:"Normalize Error"
+			)
+		)
+	)
+
+	on btnNormalizeExport pressed do (
+		if pickedRoot == undefined then (
+			messagebox "Pick a GTA hierarchy root first." title:"Normalize + Export"
+		) else (
+			local startVal = GetStartFrameValue()
+			local endVal = GetEndFrameValue()
+			if endVal < startVal then (
+				messagebox "End frame must be greater than or equal to start frame." title:"Normalize + Export"
+			) else (
+				local outName = getSaveFileName caption:"Export normalized IFP" types:"IFP animation (*.ifp)|*.ifp|"
+				if outName != undefined then (
+					local normResult = GTAAnim_NormalizeRootFacing pickedRoot yawDegrees.value startVal endVal rotateMotion.checked rotateHeading.checked
+					if normResult[1] != true then (
+						messagebox normResult[2] title:"Normalize Error"
+					) else (
+						local exportResult = GTAAnim_ExportNormalizedIFP pickedRoot outName undefined exportFormat.state useBoneIDsForANPK.checked
+						if exportResult[1] == true then messagebox (normResult[2] + "\n\n" + exportResult[2]) title:"Normalize + Export"
+						else messagebox exportResult[2] title:"Export Error"
+					)
+				)
+			)
+		)
+	)
+)
+
+/*
+=============================================================================
+   SECTION 3: ABOUT
 =============================================================================
 */
 
@@ -845,13 +1365,13 @@ rollout animateRoll "Animation" (
 -- ROLLOUT 2: ABOUT
 -- ===========================
 rollout aboutRoll "About" (
-	label l1 "GTA IFP Animation IO V2.0"
-	label l1a "February, 2026"
+	label l1 "GTA IFP Animation IO V2.1"
+	label l1a "March, 2026"
 	label l2 "Code based on Kam's GTA_IFP_IO v1.1"
 	label l2a "and 2018 Goldfish Edition."
 	label l2b ""
 	label l3 "Enhanced by E2001"
-	label l3a "Animation management tools"
+	label l3a "Immediate save workflow restored"
 )
 
 /*
@@ -861,6 +1381,7 @@ rollout aboutRoll "About" (
 */
 
 if Kam_GTAsaIFP != undefined then ( closeRolloutFloater Kam_GTAsaIFP; gc() )
-Kam_GTAsaIFP = newRolloutFloater "Animation IFP IO" 220 600 10 30
+Kam_GTAsaIFP = newRolloutFloater "Animation IFP IO" 220 820 10 30
 addRollout animateRoll Kam_GTAsaIFP
+addRollout normalizeRoll Kam_GTAsaIFP rolledup:true
 addRollout aboutRoll Kam_GTAsaIFP rolledup:true
