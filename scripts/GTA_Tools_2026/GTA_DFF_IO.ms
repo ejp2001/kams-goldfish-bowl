@@ -137,8 +137,8 @@ fn ConfirmVehicleOnlyEmbeddedCol exportVersion colcase = (
 	return queryBox msg title:"Vehicle-Only Embedded Collision"
 )
 
--- Load IFP export/import functions (always reload to ensure latest version)
-fileIn (scriptspath+"\\GTA_Tools_2026\\gtaIFPio_Fn.ms") quiet:true
+-- Load IFP export/import functions: World-object-specific copy (isolated from character changes)
+fileIn (scriptspath+"\\GTA_Tools_2026\\gtaDFFIFPio_Fn.ms") quiet:true
 
 fn pbUpdate = (
 	pbcount += 1

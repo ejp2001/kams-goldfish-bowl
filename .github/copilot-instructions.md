@@ -32,13 +32,13 @@ When restoring behavior: add a one-line header to the changed file noting the ex
 
 **Character Export** (`GTA_CHAR_IO.ms`):
 - Uses 2005 `RemapByVT` (vertex-based, preserves welding)
-- Loads: `CharDFFimp.ms`, `CharDFFexp.ms`, `gtaIFPio_Fn.ms`
+- Loads: `CharDFFimp.ms`, `CharDFFexp.ms`
 - For: Skinned characters, skeletal animations, IFP management
 - NEVER for: Props, vehicles, world objects
 
 **World Object Export** (`GTA_DFF_IO.ms`):
 - Uses 2018 `RemapByUV1/UV2` (UV-based, creates vertex splits)
-- Loads: `DFFimp.ms`, `DFFexp.ms`, `gtaIFPio_Fn.ms`
+- Loads: `DFFimp.ms`, `DFFexp.ms`, `gtaDFFIFPio_Fn.ms`
 - For: Props, vehicles, buildings, scenery (UV animations, object IFP)
 - Runtime validation: Blocks objects with `Skin` modifier
 
@@ -134,7 +134,11 @@ Notes:
 - Applies materials and textures
 - Creates Skin modifier with bone weights
 
-### Animation (gtaIFPio_Fn.ms)
+### Animation (gtaCharIFPio_Fn.ms / gtaDFFIFPio_Fn.ms)
+- Separated into per-consumer copies to prevent cross-contamination
+- `gtaCharIFPio_Fn.ms` — loaded by GTA_IFP_IO.ms (character animations)
+- `gtaDFFIFPio_Fn.ms` — loaded by GTA_DFF_IO.ms (world object animations)
+- Original `gtaIFPio_Fn.ms` kept as reference (not loaded by any tool)
 - `ApplyAnim` - Main function to apply IFP keyframes to Max objects
 - Handles framerate conversion (30fps → Max fps)
 - Bone matching by name or "BoneID" user property
@@ -398,8 +402,9 @@ Value   Day  Night   Use Case
 ## File Structure & Dependencies
 
 **Main UIs** (load subsidiary modules):
-- `GTA_CHAR_IO.ms` → `CharDFFimp.ms`, `CharDFFexp.ms`, `gtaIFPio_Fn.ms`
-- `GTA_DFF_IO.ms` → `DFFimp.ms`, `DFFexp.ms`, `gtaIFPio_Fn.ms`
+- `GTA_CHAR_IO.ms` → `CharDFFimp.ms`, `CharDFFexp.ms`
+- `GTA_DFF_IO.ms` → `DFFimp.ms`, `DFFexp.ms`, `gtaDFFIFPio_Fn.ms`
+- `GTA_IFP_IO.ms` → `gtaCharIFPio_Fn.ms` (standalone animation tool, no DFF dependency)
 - `GTA_Map_IO.ms` → `DFFimp.ms`, `gtaMapIO_Fn.ms`, `emt_startup.ms`
 - `GTA_COL_IO.ms` → Collision import/export (standalone)
 - `GTA_2DFX_IO.ms` → `ui_2dfx.ms` (2DFX effects editor)
