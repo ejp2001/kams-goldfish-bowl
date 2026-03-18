@@ -499,7 +499,8 @@ fn GTAAnim_GetSAExportKeyInfo bne = (
 			if pc.keys.count < keyCount then keyCount = pc.keys.count
 		) catch ()
 	)
-	if keyCount <= 0 then return #(0, false)
+	if keyCount < 1 then return #(0, false)
+	if hasPosKeys and (keyCount < 1) then hasPosKeys = false
 
 	while keyCount > 1 do (
 		local prevTime = getKeyTime pr (keyCount - 1)

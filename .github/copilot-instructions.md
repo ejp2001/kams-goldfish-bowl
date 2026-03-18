@@ -26,7 +26,6 @@ This repository restores and preserves **Kam's GTA Scripts (2005)** with selecti
    - `originals/Kams GTA Scripts 2018 Edition by Goldfish/` — Goldfish 2018 reference files.
    - `originals/Other Plugins/` — third-party helpers and examples.
 
-When restoring behavior: add a one-line header to the changed file noting the exact originals path used (e.g. "Restored from: modding resources/kams original mse files decrypted/CharDFFexp.ms").
 
 ## Two-Tool Rule (Critical Architecture)
 
@@ -42,7 +41,7 @@ When restoring behavior: add a one-line header to the changed file noting the ex
 - For: Props, vehicles, buildings, scenery (UV animations, object IFP)
 - Runtime validation: Blocks objects with `Skin` modifier
 
-**Why Separate Tools**: UV-based remapping breaks skinned mesh welding (visible seams). Vertex-based remapping distorts UV mapping. Different requirements → different tools.
+**Why Separate Tools**: In DFF objects, UV-based remapping breaks skinned mesh welding (visible seams). Vertex-based remapping distorts UV mapping. Different requirements → different tools. In IFP animations, character tool matches bones by name or "BoneID" property, while world object tool doesn't use bone matching at all.
 
 ## Practical guidance for contributors
 - When making changes, always state which source you referenced by full path in the commit message and file header.
@@ -61,7 +60,7 @@ When restoring behavior: add a one-line header to the changed file noting the ex
 - World-object UI (project): scripts/GTA_Tools_2026/GTA_DFF_IO.ms
 
 ## If you are restoring behavior
-- Cite the exact `originals/...` or `modding resources/...` file path in the file header and PR description.
+- Cite the exact `originals/...` or `modding resources/...` file path in the PR description.
 - Add a short changelog entry explaining why the restore was necessary and which in-game behavior it fixes.
 
 ---
@@ -72,10 +71,16 @@ When restoring behavior: add a one-line header to the changed file noting the ex
 - **GTA_CHAR_IO.ms**: Character import from Kam's Original (2005) + Character export (2005 seamless) + Animation Export
 - **GTA_DFF_IO.ms**: World object import/export (2018) + UV and IFP object animations
 
+
 **Why Integration Works**: The 2005 CharDFFexp.ms is self-contained and uses `RemapByVT` (vertex-based remapping that preserves welding). It doesn't conflict with 2018 world object code which uses `RemapByUV1/UV2` (UV-based remapping that creates necessary vertex splits for proper UV mapping).
 
 **Result**: Single installation workflow - no need to manually switch between 2005 and 2018 versions. GTA_CHAR_IO.ms automatically uses correct export method for characters.
 
+
+### Animation import/export separated into per-consumer copies to prevent cross-contamination:
+- **gtaCharIFPio_Fn.ms**: Character animation import/export (2005 logic) - loaded by GTA_IFP_IO.ms
+- **gtaDFFIFPio_Fn.ms**: World object animation import/export (2018 logic) - loaded by GTA_DFF_IO.ms
+- **Original `gtaIFPio_Fn.ms`** kept as reference (not loaded by any tool) - contains original 2005 animation logic for reference and potential future use
 
 
 Authoritative references (do not edit directly):
@@ -88,8 +93,6 @@ Authoritative references (do not edit directly):
 ## DFF Parser (internal reference)
 'research\rw-parser-ng' folder contains an internal RenderWare DFF parser written in TypeScript. This is a reference implementation to understand chunk structures and data layouts. It is NOT part of the 3ds Max toolset but can be used for offline analysis and verification of DFF files exported by the tools.
 
-## 3DS Max 2017 Help Files
-Complete offline help files for 3DS Max version 2017 can be found at: 'research\3dsmax2017\en_us\index.html'. Since 3DS Max 2017 is the main test bed for this project, these help files are a valuable resource for checking available features and avoiding MaxScript errors. Refer to this directory for authoritative documentation when developing or troubleshooting scripts.
 
 Notes:
 - If a filename appears in both `scripts/GTA_Tools_2026/` and `originals/`, treat `scripts/GTA_Tools_2026/` as the active, authoritative project file.

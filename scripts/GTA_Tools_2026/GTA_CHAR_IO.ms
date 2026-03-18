@@ -101,31 +101,8 @@ rollout importRoll "Import" (
 	on impScale changed val do (
 		SaveImportSettings materialType.state textype.state impScale.value
 	)
-	
-	-- Load saved settings on rollout open
-	on importRoll open do (
-		local settings = LoadImportSettings()
-		materialType.state = settings[1]
-		textype.state = settings[2]
-		impScale.value = settings[3]
-	)
-	
-	-- Save settings when changed
-	on materialType changed state do (
-		SaveImportSettings materialType.state textype.state impScale.value
-	)
-	
-	on textype changed state do (
-		SaveImportSettings materialType.state textype.state impScale.value
-	)
-	
-	on impScale changed val do (
-		SaveImportSettings materialType.state textype.state impScale.value
-	)
-	
-	-- Import DFF with character-specific options
 
-		-- Import DFF with character-specific options
+	-- Import DFF with character-specific options
 		on loaddff pressed do (
 			fname = getopenfilename caption:"Read Character DFF File" types:"Character DFF (*.dff)|*.dff|"
 			if fname != undefined then (
@@ -250,12 +227,20 @@ rollout exportRoll "Export" (
 							if f == undefined then (
 								Messagebox "Can't create the file!" title:"I/O Error"
 							) else (
+								-- Add temporary Unwrap_UVW modifier (required for UV data access during export)
+								local cuv = Unwrap_UVW()
+								addmodifier $ cuv before:1
+								
 								-- Call wCharDFFout from CharDFFexp.ms
 								wCharDFFout f $ bonechain MMC.checked TUV.checked CPV.checked NOR.checked expScale.value ver 0 false
+								
+								-- Remove temporary modifier and close file
+								deletemodifier $ cuv
 								fclose f
 								format "Character DFF exported successfully!\n"
 							)
 						) catch (
+							try (deletemodifier $ cuv) catch()
 							try (fclose f) catch()
 							messagebox ("Error exporting DFF:\n" + (getCurrentException())) title:"Export Error"
 						)

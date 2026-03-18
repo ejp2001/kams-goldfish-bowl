@@ -1078,6 +1078,16 @@ fn wMaterialSplit f msh ver = (
 )
 --end fn wMaterialSplit		--<e5>--
 --
+fn safeTexName bmp = (
+	try (
+		local fn_ = bmp.filename
+		if fn_ != undefined AND fn_ != "" then return (getFilenameFile fn_)
+	) catch ()
+	try ( if bmp.name != undefined AND bmp.name != "" then return bmp.name ) catch ()
+	return ""
+)
+--end fn safeTexName
+--
 fn wTexture f mtl isreflection ver = ( 
     writeLong f 0x06						-- rwTexture
 	T_length_add = ftell f
@@ -1088,26 +1098,26 @@ fn wTexture f mtl isreflection ver = (
 	WriteLong f ver							-- file version for GTA3   
 
 	if isreflection == true then (
-		tname = getFilenameFile mtl.reflectionMap.filename
+		tname = safeTexName mtl.reflectionMap
 		Filtertype = mtl.reflectionMap.filtering
 		mname = ""
 	) else (
 		if classof mtl == GTA_Mtl then (
 			if (classof mtl.alphamap == Bitmaptexture)AND(mtl.use_alphamap == true) then (
-				mname = getFilenameFile mtl.alphamap.filename
+				mname = safeTexName mtl.alphamap
 				Filtertype = mtl.alphamap.filtering
 			) else mname = ""        
 			if (classof mtl.colormap == Bitmaptexture)AND(mtl.use_colormap == true) then (
-				tname = getFilenameFile mtl.colormap.filename
+				tname = safeTexName mtl.colormap
 				Filtertype = mtl.colormap.filtering
 			) else tname = ""
         ) else (
 			if (classof mtl.opacitymap == Bitmaptexture)AND(mtl.opacityMapEnable == true) then (
-				mname = getFilenameFile mtl.opacitymap.filename
+				mname = safeTexName mtl.opacitymap
 				Filtertype = mtl.opacitymap.filtering
 			) else mname = ""
 			if (classof mtl.diffusemap == Bitmaptexture)AND(mtl.diffuseMapEnable == true) then (
-				tname = getFilenameFile mtl.diffusemap.filename
+				tname = safeTexName mtl.diffusemap
 				Filtertype = mtl.diffusemap.filtering
 			) else tname = ""
 		)--end if/else GTA_mtl
