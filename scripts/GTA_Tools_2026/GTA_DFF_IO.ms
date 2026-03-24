@@ -555,7 +555,7 @@ Group "Multi. Clump" (
 		)
 		
 		format "Importing world object...\n"
-		DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname)
+		DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname) allowSkinImport:false
 		)
 	)--end on useclump
     
@@ -605,10 +605,12 @@ Group "Multi. Clump" (
 								fseek f savedPos #seek_set
 								
 								if hasSkin then (
-									format "** Character model detected (Skin PLG found) **\nImporting with Skin modifier and minimal options.\nFor full character import options, use Character IO tool.\n\n"
+									fclose f
+									messageBox "Character model detected (Skin PLG found)!\n\nWorld Object IO blocks skinned DFF imports.\nPlease use Character IO (GTA_CHAR_IO.ms)." title:"Use Character IO"
+									continue
 								)
 								
-							 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i])
+							 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i]) allowSkinImport:false
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (
@@ -648,14 +650,14 @@ Group "Multi. Clump" (
 							local isCharacter = hasSkinData fname
 							
 							if isCharacter then (
-								format "Detected character model (has Skin PLG), using DFFin...\n"
-								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname)
+								fclose f
+								messageBox "Character model detected (Skin PLG found)!\n\nWorld Object IO blocks skinned DFF imports.\nPlease use Character IO (GTA_CHAR_IO.ms)." title:"Use Character IO"
 							) else (
 								format "Detected world object, using DFFin...\n"
-								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname)
+								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname) allowSkinImport:false
+								useclump.enabled = false
+								whichone.enabled = false
 							)
-							useclump.enabled = false
-							whichone.enabled = false
 						) else (
 							fclose f
 							whichone.range = [1,no_clump.count,1]
@@ -669,7 +671,7 @@ Group "Multi. Clump" (
 
 			)
 		)
-		fclose f
+		try (fclose f) catch ()
 		gc()
 	)--end on imp
     

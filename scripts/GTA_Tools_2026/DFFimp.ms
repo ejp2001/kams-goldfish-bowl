@@ -1991,7 +1991,7 @@ if DebugMode == true then (
 --M------------
 --Main Import--
 ---------------
-fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
+fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname allowSkinImport:true = (
 	imp2dfxCount = 0
 	impHas2dfx = false
 	gUVAnimDict = #()  -- Clear UV animation dictionary for new import
@@ -2032,6 +2032,10 @@ fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 			if isIplImport == false then pbUpdate()
 			msh = rGeometry f Iscale mattype texEx showdetail 
 			if msh == undefined then (return undefined)
+			if (allowSkinImport == false) and (SkinData != undefined) then (
+				messageBox "Character model detected (Skin PLG found)!\n\nWorld Object IO blocks skinned DFF imports.\nPlease use Character IO (GTA_CHAR_IO.ms)." title:"Use Character IO"
+				return undefined
+			)
 			
 			append MshAry msh
 		)
@@ -2364,15 +2368,32 @@ fn ImportIFPToHierarchy rootObj fname skipPosKeys animName = (
 	skipbyte = 23 - (if RootName != undefined then RootName.count else 0)
 	if skipbyte < 0 then skipbyte = 0
 	fseek f skipbyte #seek_cur
+	-- In SA ANP3 this count represents animation tracks in the hierarchy.
+	-- It does NOT imply Skin modifier processing.
 	local BoneCount = readLong f
 	local DataCount = readLong f
 	local unkwn = readLong f
 	if unkwn != 1 then format "Warning: Unknown value: %\n" unkwn
-	format "Importing animation: %\nRoot: %\nBones: %\n" Aname RootName BoneCount
+	format "Importing animation: %\nRoot: %\nTracks: %\n" Aname RootName BoneCount
 	
 	-- collect objects in hierarchy
 	local AllObjects = #(rootObj)
 	if rootObj.children.count > 0 then ( join AllObjects (collectChildren_IFP rootObj) )
+
+	-- World-object safety guard: if Skin modifier is detected, force Character IO instead.
+	for o in AllObjects do (
+		if o != undefined then (
+			try (
+				for mi = 1 to o.modifiers.count do (
+					if (classof o.modifiers[mi]) == Skin then (
+						fclose f
+						messageBox "Character skinning detected in selected hierarchy.\n\nWorld IFP importer does not process skinned character rigs.\nPlease use Character IO / IFP IO tools for character animations." title:"Use Character IO"
+						return false
+					)
+				)
+			) catch ()
+		)
+	)
 	
 	-- We'll read the entire animation data into memory first
 	local bonesData = #()
@@ -2460,43 +2481,48 @@ fn ImportIFPToHierarchy rootObj fname skipPosKeys animName = (
 		for fr in rec.frames do (
 			local qx = fr[1]; local qy = fr[2]; local qz = fr[3]; local qw = fr[4]
 			local rawTicks = fr[5]
-			-- SA IFP format: time = (rawShort / 60.0) * framerate
-			-- This gives us FRAME numbers directly, not ticks
-			local timeInSeconds = rawTicks / 60.0
-			local frameNumber = (timeInSeconds * framerate) as integer
-			if frameNumber < 0 then frameNumber = 0
+			-- Match legacy ApplyAnim timing conversion used by Kam's importer.
+			local tm = ((rawTicks / 60.0) * framerate) + startTime
+			if tm < 0 then tm = 0
 			
 			-- Debug first key only
 			if fr == rec.frames[1] then (
-				format "  First key: raw=%, seconds=%, frame=% (fps=%)\n" rawTicks timeInSeconds frameNumber framerate
+				local timeInSeconds = rawTicks / 60.0
+				format "  First key: raw=%, seconds=%, time=% (fps=%)\n" rawTicks timeInSeconds tm framerate
 			)
 			
 			local rot = quat qx qy qz qw
 			local pos = undefined
 			if KeyType == 4 then pos = [fr[6], fr[7], fr[8]]
+			local isRootBone = ((getUserProp obj "BoneID") == 0)
 			
 			-- create key safely
 			try (
-				with animate on at time frameNumber (
-					in coordsys parent (
+				with animate on at time tm (
+					if isRootBone then (
+						local bkup = obj.pos
+						obj.pos = [0,0,0]
 						obj.rotation = rot
-						-- Apply position based on KeyType and skipPosKeys flag
-						if (KeyType == 4) and (not skipPosKeys) then (
-							-- Animation has position data and we want to use it
-							obj.pos = pos
-						) else if (KeyType == 4) and skipPosKeys then (
-							-- Animation has position data but we're skipping it
-							-- Don't set position at all - preserve skeleton structure
-						) else (
-							-- KeyType 3 (rotation only) - no position data in animation
-							-- Don't set position - preserve skeleton structure
+						obj.pos = bkup
+					) else (
+						in coordsys parent (
+							local bkup = obj.pos
+							obj.pos = [0,0,0]
+							obj.rotation = rot
+							obj.pos = bkup
 						)
+					)
+
+					if (KeyType == 4) and (not skipPosKeys) then (
+						if isRootBone then obj.pos = pos
+						else if obj.parent != undefined then in coordsys parent (obj.pos = pos)
+						else obj.pos = pos
 					)
 				)
 				-- set tangents to linear best-effort
 				try (
 					local rotCtrl = obj.rotation.controller
-					local rotKeyIdx = getKeyIndex rotCtrl frameNumber
+					local rotKeyIdx = getKeyIndex rotCtrl tm
 					if rotKeyIdx > 0 then (
 						rotCtrl.keys[rotKeyIdx].OutTangentType = #linear
 						rotCtrl.keys[rotKeyIdx].InTangentType = #linear
@@ -2504,19 +2530,26 @@ fn ImportIFPToHierarchy rootObj fname skipPosKeys animName = (
 				) catch()
 				if (KeyType == 4) and (not skipPosKeys) then (
 					try (
-						local posCtrl = obj.position.controller
-						local posKeyIdx = getKeyIndex posCtrl frameNumber
+						local posCtrl = obj.pos.controller
+						local posKeyIdx = getKeyIndex posCtrl tm
 						if posKeyIdx > 0 then (
 							posCtrl.keys[posKeyIdx].OutTangentType = #linear
 							posCtrl.keys[posKeyIdx].InTangentType = #linear
 						)
 					) catch()
+				) else (
+					if tm != startTime then (
+						try (
+							local tk = numkeys obj.pos.controller
+							if tk > 0 then deletekey obj.pos.controller tk
+						) catch()
+					)
 				)
-			) catch ( format "Warning: failed to add key for % at frame %\n" obj.name frameNumber )
+			) catch ( format "Warning: failed to add key for % at time %\n" obj.name tm )
 			
-			if frameNumber > maxAnimTicks then (
-				maxAnimTicks = frameNumber
-				format "  >>> New max: frame=%\n" maxAnimTicks
+			if tm > maxAnimTicks then (
+				maxAnimTicks = tm
+				format "  >>> New max: time=%\n" maxAnimTicks
 			)
 		) -- per-frame
 	) -- per-bone apply

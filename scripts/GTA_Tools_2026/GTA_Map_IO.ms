@@ -133,16 +133,14 @@ rollout IORoll "IO Control" (
 		label lblipl2 "Supported:" align:#left  
 		label lblipl3 "   MASS IPL import,  BINARY IPL import" align:#left  
 		label lblipl4 "Import sections:" align:#left offset:[0,5]
-		checkbox ch_inst "inst" align:#left offset:[0,0] across:4 checked:true
-		checkbox ch_grge "grge" align:#left offset:[-15,0] 
-		checkbox ch_cull "cull" align:#left offset:[-26,0]
-		checkbox ch_pick "pick" align:#left offset:[-40,0]
-		checkbox ch_enex "enex" align:#left across:4
-		checkbox ch_cars "cars" align:#left offset:[-15,0]
-		checkbox ch_jump "jump" align:#left offset:[-26,0]
-		checkbox chFake "fake import"  align:#right offset:[0,13] tooltip:"Replace models with a plein"
-		
-		
+		checkbox ch_inst "inst" align:#left offset:[0,0] across:4 checked:true Tooltip:"Normal map objects"
+		checkbox ch_grge "grge" align:#left offset:[-15,0] Tooltip:"Garages"
+		checkbox ch_cull "cull" align:#left offset:[-26,0] Tooltip:"Cull Zones"
+		checkbox ch_pick "pick" align:#left offset:[-40,0] Tooltip:"Pickup Objects"
+		checkbox ch_enex "enex" align:#left across:4 Tooltip:"Building Entrance/Exit"
+		checkbox ch_cars "cars" align:#left offset:[-15,0] Tooltip: "Parked Cars"
+		checkbox ch_jump "jump" align:#left offset:[-26,0] Tooltip: "Stunt Jumps"
+		checkbox chFake "fake import"  align:#right offset:[0,13] tooltip:"Replace models with a marker plane"		
 	)
 	
 	on textype changed state do (
@@ -330,7 +328,7 @@ rollout IORoll "IO Control" (
 
 --obj Properities--
 --===============--
-rollout Mapkamexp "kam ipl/ide export (old)" (
+rollout Mapkamexp "Data Files Import/Export" (
 		button expipl "export ipl" width:100 across:2 
 		button expide "export ide" width:100 
 		button ideIn "import ide" width:100 
@@ -430,20 +428,33 @@ rollout MapRoll "Objects Properities" (
     
 		spinner farview "View Distance : " fieldwidth:45 range:[0,3000,300]
 		label hassub "" align:#left across:2 align:#right type:#integer
-		button setsubVD "Set sub-obj View Distance" width:246 enabled:false
+		button setsubVD "Set sub-obj View Distance" width:140 enabled:false
 
 		group "Render Effect" (
-			checkbox eff1 "Wet Surface (Rain)" across:2	--1
-			checkbox eff2 "tobj Night Flag" 		--2
-			checkbox eff3 "No Cull behind Alpha" across:2		--4
-			checkbox eff4 "!No Cull behind Alpha" across:3			--8
-			checkbox eff5 "tobj Day Flag" 	across:2		--16
-			checkbox eff6 "** Is Interior"		--32
-			checkbox eff7 "Disable Shadow Cull" across:2	--64
-			checkbox eff8 "No Surface from Cull"			--128
-			checkbox eff9 "Disable DrawDistance" across:2			--256
-			checkbox effA "**Breakable with Crack" --across:2			--512
-			checkbox effB "**Breakable" --offset:[-41,0]			--1024
+			checkbox eff1 "Wet Surface (Rain)" across:2	tooltip:"1 - Causes surface to reflect light when wet (roads)" --1
+			checkbox eff2 "tobj Night Flag"	tooltip:"2: Only visible at night (lights, coronas)" --2
+			checkbox eff3 "Draw Last (Z-buffer)" across:2 tooltip:"4 - Render Last - appears in front of other objects (windows)" --4
+			checkbox eff4 "!Additive Blend" tooltip:"8 - Multiplies transparencies - Previous flag enabled automatically" --8
+			checkbox eff5 "tobj Day Flag" across:2 tooltip:"16 - Timed object - Only visible in daytime (open signs?)" --16 
+			checkbox eff6 "Animated" tooltip:"32 - Object has animation (IDE section / anim)" --32
+			checkbox eff7 "Disable Z-bufer" across:2 tooltip:"64 - Transparancy effect: causes object to appear behind - allows other transparencies to show through" --64
+			checkbox eff8 "No Shadows" tooltip:"128 - Disables shadows (pickups)" --128 
+			checkbox eff9 "Disable DrawDistance" across:2 tooltip:"256 - Disables draw distance limit (ground LODs)" --256
+			checkbox effA "**Glass Type-1" tooltip:"512 - Breakable - Has object.dat entry (windows, small)" --512
+			checkbox effB "**Glass Type-2" across:2	tooltip:"1024 - Breakable - Has object.dat entry (windows, large)" --1024
+			checkbox effC "**Garage Door" tooltip:"2048 - Opens when approached - Has object.dat entry (garage doors)" --2048
+			checkbox effD "**Barriers / Veh Parts"	across:2 tooltip:"4096 - Breakable - Object contains dummies - Has object.dat entry (vehicle parts / barriers)" --4096
+			checkbox effE "Is Tree" tooltip:"8192 - Object moves with wind (trees, some plants)" --8192
+			checkbox effF "Is Palm"	across:2 tooltip:"16384	- Object moves with wind (trees - coastal)" --16384
+			checkbox effG "No aircraft col" tooltip:"32768 - Aircrafts do not collide with this object (lights, telephone wires)" --32768
+			checkbox effH "65536" across:2 tooltip:"65536 - Present in IDE, but not read (explosive objects)" --65536
+			checkbox effI "131072" tooltip:"131072 - Present in IDE, but not read (chopcop models)" --131072 
+			checkbox effJ "262144" across:2 tooltip:"262144 - Present in IDE, but not read (pleasure-DL.dff )" --262144
+			checkbox effK "524288" tooltip:"524288 - Present in IDE, but not read (special)" --524288
+			checkbox effL "Is Tag (gangs)" across:2 tooltip:"1048576 - Switches from mesh 1 to mesh 2 when sprayed (gang graffiti)" --1048576
+			checkbox effM "Double-Sided" tooltip:"2097152 - Disables backface cull" --2097152
+			checkbox effN "**No Cover" tooltip:"4194304 - Breakable - Has object.dat entry (statues, fountains)" --4194304
+			
 			Label FlagInfo1 "   ! disables texture to black when placed in exterior" align:#left
 			Label FlagINfo2	"  ** object must be defined in object.dat" align:#left
 		)		
@@ -548,6 +559,18 @@ rollout MapRoll "Objects Properities" (
 			if eff9.checked == true then rendeff += 256
 			if effA.checked == true then rendeff += 512
 			if effB.checked == true then rendeff += 1025
+			if effC.checked == true then rendeff += 2048
+			if effD.checked == true then rendeff += 4096
+			if effE.checked == true then rendeff += 8192
+			if effF.checked == true then rendeff += 13684
+			if effG.checked == true then rendeff += 32768
+			if effH.checked == true then rendeff += 65536
+			if effI.checked == true then rendeff += 131072
+			if effJ.checked == true then rendeff += 262144
+			if effK.checked == true then rendeff += 524288
+			if effL.checked == true then rendeff += 1048576
+			if effM.checked == true then rendeff += 2097152
+			if effN.checked == true then rendeff += 4194304			
 			upb += "RenderEffect=" + rendeff as string + "\n"
 			
 			if usetime.checked == true then (
@@ -607,6 +630,18 @@ rollout MapRoll "Objects Properities" (
 				
 			rendeff = getUserProp obj "RenderEffect"
 			if rendeff != undefined then (
+				if rendeff >= 4194304 then (rendeff -= 4194304; effN.checked = true ) else effN.checked = false
+				if rendeff >= 2097152 then (rendeff -= 2097152; effM.checked = true ) else effM.checked = false
+				if rendeff >= 1048576 then (rendeff -= 1048576; effL.checked = true ) else effL.checked = false
+				if rendeff >= 524288 then (rendeff -= 524288; effK.checked = true ) else effK.checked = false
+				if rendeff >= 262144 then (rendeff -= 262144; effJ.checked = true ) else effJ.checked = false
+				if rendeff >= 131072 then (rendeff -= 131072; effI.checked = true ) else effI.checked = false
+				if rendeff >= 65536 then (rendeff -= 65536; effH.checked = true ) else effH.checked = false
+				if rendeff >= 32768 then (rendeff -= 32768; effG.checked = true ) else effG.checked = false
+				if rendeff >= 16384 then (rendeff -= 16384; effF.checked = true ) else effF.checked = false
+				if rendeff >= 8192 then (rendeff -= 8192; effE.checked = true ) else effE.checked = false
+				if rendeff >= 4096 then (rendeff -= 4096; effD.checked = true ) else effD.checked = false
+				if rendeff >= 2048 then (rendeff -= 2048; effC.checked = true ) else effC.checked = false			
 				if rendeff >= 1024 then (rendeff -= 1024; effB.checked = true ) else effB.checked = false 
 				if rendeff >= 512 then ( rendeff -= 512; effA.checked = true ) else effA.checked = false 
 				if rendeff >= 256 then ( rendeff -= 256; eff9.checked = true ) else eff9.checked = false 
@@ -624,7 +659,14 @@ rollout MapRoll "Objects Properities" (
 				eff5.checked = false; eff6.checked = false
 				eff7.checked = false; eff8.checked = false
 				eff9.checked = false; effA.checked = false
-				effB.checked = false
+				effB.checked = false; effC.checked = false
+				effD.checked = false; effE.checked = false
+				effF.checked = false; effG.checked = false
+				effH.checked = false; effI.checked = false
+				effJ.checked = false; effK.checked = false
+				effL.checked = false; effM.checked = false
+				effN.checked = false;
+				
 			)--end if rendeff
 				
 			ton = getUserProp obj "TimeOn"
@@ -832,33 +874,14 @@ Rollout Roll2dfx "2dfx IDE" (
 
 
 
---About--
---=====--
-rollout aboutRoll "About" (
-	label l1 "MAP IO v0.5.2"
-	label l2 "(KAMs scripts 0.3.7)"
-	label l3 "Support:" align:#left
-	label l4 "   - IPL Import/export" align:#left
-	label l4a "         . insts, cull (all Version)" align:#left
-	label l4b "         . grge, enex, pick, jump, cars, auzo (SA only)" align:#left
-	label l5 "   - ZON Import/export(GTA3/VC)" align:#left	
-	label l6 "   - IDE Import/export" align:#left
-	label l6a "         . objs, tobj (all Version)" align:#left
-	label l6b "         . 2dfx (GTA3/VC/SA)" align:#left
-	label l6c "         . anim, txdp (SA only)" align:#left
-	label lA ""	
-	label lB "(c) Kam & Goldfish 2020" 
-	label lC "kam.lai@ntlworld.com"
-) 
-
 rollout mapobjRoll "Map Objects Creation" (
-	button creGrge "Grge" width:45 across:5
-	button crePick "Pick" width:45 
-	button creCars "Cars" width:45 
-	button creEnex "Enex" width:45 
-	button creAuzo "Auzo" width:45
-	button creJump "Jump" width:45 across:5
-	button creCull "Cull" width:45
+	button creGrge "Grge" width:45 across:5 Tooltip:"Garage"
+	button crePick "Pick" width:45 Tooltip:"Pickup Item" 
+	button creCars "Cars" width:45 Tooltip:"Parked Cars" 
+	button creEnex "Enex" width:45 Tooltip:"Building Entrance/Exit" 
+	button creAuzo "Auzo" width:45 Tooltip:"Audio Zone"
+	button creJump "Jump" width:45 across:5 Tooltip:"Stunt Jump"
+	button creCull "Cull" width:45 Tooltip:"Cull zone"
 	button dmy1 "" width:45 enabled:false
 	button dmy2 "" width:45 enabled:false
 	button dmy3 "" width:45 enabled:false
@@ -901,58 +924,6 @@ rollout mapobjRoll "Map Objects Creation" (
 	)
 )
 
-rollout disproll "Display Helper" (
-	button mapshow "Show Texture" width:120 tooltip:"Display texture on selected objects" align:#center across:2
-	button maphide "Hide Texture" width:120 tooltip:"Hide texture on selected objects" align:#center
-
-	on mapshow pressed do (
-		if $selection.count > 0 then (
-			freeSceneBitmaps()
-			objary = $selection
-			for obj in objary where obj.material != undefined do (
-				if classof obj.material == Multimaterial then (
-					for i = 1 to obj.material.count do (
-						try (
-							showTextureMap obj.material[i] obj.material[i].colormap on
-						) catch (
-							try (showTextureMap obj.material[i] obj.material[i].diffusemap on ) catch ()
-						)
-					)
-				) else (
-					try (
-						showTextureMap obj.material obj.material.colormap on
-					) catch (
-						try (showTextureMap obj.material obj.material.diffusemap on ) catch ()
-					)
-				)
-			)--end for obj	
-		)--end if
-	)--end on mapshow
-	
-		on maphide pressed do (
-		if $selection.count > 0 then (
-			objary = $selection
-			for obj in objary where obj.material != undefined do (
-				if classof obj.material == Multimaterial then (
-					for i = 1 to obj.material.count do (
-						try (
-							showTextureMap obj.material[i] obj.material[i].colormap off
-						) catch (
-							try (showTextureMap obj.material[i] obj.material[i].diffusemap off ) catch ()
-						)
-					)
-				) else (
-					try (
-						showTextureMap obj.material obj.material.colormap off
-					) catch (
-						try (showTextureMap obj.material obj.material.diffusemap off ) catch ()
-					)
-				)
-			)--end for obj	
-		)--end if
-	)--end on mapshow
-	
-)
 
 if Kam_GTAMAP != undefined then (closeRolloutFloater Kam_GTAMAP; gc() )
 Kam_GTAMAP = newRolloutFloater "MAP IO v0.5.2 [0.3.7]" 300 427 10 120		
@@ -961,6 +932,4 @@ addRollout mapobjRoll Kam_GTAMAP 	rolledup:true
 addRollout MapRoll Kam_GTAMAP 	rolledup:true
 addRollout Roll2dfx Kam_GTAMAP  rolledup:true
 addRollout ZONRoll Kam_GTAMAP 	rolledup:true
-addRollout disproll Kam_GTAMAP 	rolledup:true
 addRollout Mapkamexp Kam_GTAMAP rolledup:true
-addRollout aboutRoll Kam_GTAMAP	
