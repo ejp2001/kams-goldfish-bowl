@@ -1342,7 +1342,7 @@ rollout animateRoll "Character Animation" (
 	on saveAnim pressed do (
 		select $*
 		for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
-		if (AnimList.selection != 0)AND($selection.count >0) then (
+		if ($selection.count > 0) then (
 			local Sname = getSaveFileName caption:"Save GTA Animation file" types:"IFP animation (*.ifp)|*.ifp"
 			if Sname != undefined then (
 				if $selection.count == 0 then (
@@ -1381,7 +1381,8 @@ rollout animateRoll "Character Animation" (
 								)
 							) else (   					   									--ANPK (III/VC)
 								GTAAnim_WriteSingleIFPHeader f 0x4B504E41 Sname
-								local thisLength = expAnim f ($selection as array) useBoneID.checked AnimList.selected
+								local anpkAnimName = if AnimList.selection != 0 then AnimList.selected else (GTAAnim_GetNameFromPath Sname)
+								local thisLength = expAnim f ($selection as array) useBoneID.checked anpkAnimName
 								
 								if thisLength == undefined then (
 									fclose f
@@ -1425,7 +1426,7 @@ rollout animateRoll "Character Animation" (
 					)
 				)
 			)--end if Sname
-		)--end if AnimList.selection
+		)--end if $selection.count
 	)--end on saveAnim
 )--end rollout animateRoll
 

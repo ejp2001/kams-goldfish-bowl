@@ -11,7 +11,7 @@ rollout tv_roll "" width:414 height:100
 	spinner Vcount "" pos:[100,26] width:46 height:16 range:[1,90,3] type:#integer
 	materialButton pickmat "pick material" pos:[155,4] width:120 height:54
 	button go "Create Animation" pos:[285,3] width:120 height:56
-	bitmap bmp2 "Bitmap" pos:[5,87] width:400 height:400
+	---bitmap bmp2 "Bitmap" pos:[5,87] width:400 height:400
 	
 	
 local frames = #(), dTime = #()
@@ -171,8 +171,23 @@ on go pressed do
 	
 ) -- end rollout
 
+rollout aboutRoll "About" (
+	label l1 "This is an exact copy of Deniska's TVanimationHelper from SA TOOLS suite."
+	label l1a "It is used for making sprite sheet animations. Multiple animations are possible"
+	label l2 "on objects with multiple textures, as long as they keep the same duration."
+	label l2a "UV animations now save automatically with DFF IO. No external exporter is required."
+	label l2b "Ported to GTA_Tools on March 15, 2026 by E2001"
+	button btnHelp "Open Help Folder" width:140 align:#center tooltip:"Open the running_smoke example in Windows Explorer"
+
+	on btnHelp pressed do (
+		local helpPath = (getFilenamePath (getThisScriptFilename())) + "help\\running_smoke\\"
+		shellLaunch "explorer.exe" helpPath
+	)
+)
+
 -------------------------------------------------------------------------------------------------------
 
 try (closeRolloutFloater uv_flo) catch () 
-uv_flo = newRolloutFloater "UV Animator" 425 125 20 130 
+uv_flo = newRolloutFloater "UV Animator" 425 136 20 130
 addRollout  tv_roll uv_flo
+addRollout aboutRoll uv_flo rolledup:true
