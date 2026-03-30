@@ -42,7 +42,7 @@ For practical considerations, I opted to completely remove skinned character han
 	
 * Anim Bake (Biped to Ped):   Bake any animation that can be run on 3ds Max biped to the selected GTA Character. Save animation using IFP_IO. First release - rather clumbsy - expect bugs.
 
-* Added File Management Capabilities To The IFP_IO:   No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files, if they are still able to be read (can regress back to last good anim in file - does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
+* Added File Management Capabilities To The IFP_IO:   No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files: If files are still able to be read, this tool can restore back to last good animation (does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
 
 * UV Animation Export:   The DFF IO will automatically export any texture animations it finds on the timeline. Supports multiple animations per-object - all animations must be equal duration to avoid skipping. 
 
