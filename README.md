@@ -32,6 +32,8 @@ Installation and usage:
 		* World object export uses UV-based remapping (RemapByUV1/UV2), which splits vertices at UV seams for correct texture mapping, but this breaks skin welding and causes visible seams on characters.
 		
 For practical considerations, I opted to completely remove skinned character handling from the GTA_DFF_IO.ms. This has the affect of rendering GTA_DFF_IO.ms no longer useful for importing characters with skin modifiers; although you are still able to I/O the models themselves. Automatic handling of character vs. world object formats is planned for future releases.
+
+* The many shortcomings of the original IFP_IO (too many to list).
 	
 * The Notorious IFP EOF (End Of File) Bug: If you don't know what I'm talking about, you're not alone! Even the AI has trouble keeping the facts straight on this one. *To the best of my knowledge* this bug has persisted up to the creation of yelmi's IFP-ANPK-TOOL (co-author: DENISka) - an adaptation of Kam's IFP_IO tool (feel free to correct me if I'm wrong). This bug adds "junk" data to the file whenever animations are edited, resulting in: ghosted animations (still identified internally, but not in header); animations not loading; "random crashes"; eventual file corruption.
 	
@@ -40,6 +42,8 @@ For practical considerations, I opted to completely remove skinned character han
 
 ## What's Added:
 	
+* Character IO:  Ped/Player Import/Export now as a standalone tool. Prevents cross-contamination between DFF workflows and/or model types, and facilitates future enhancements.
+
 * Anim Bake (Biped to Ped):   Bake any animation that can be run on 3ds Max biped to the selected GTA Character. Save animation using IFP_IO.  *First release - rather clumbsy - expect bugs.
 
 * Added File Management Capabilities To The IFP_IO:   No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files: If files are still able to be read, this tool can restore back to last good animation (does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
