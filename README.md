@@ -27,7 +27,7 @@ Installation and usage:
 
 ## What's fixed:
 
-* Character Export Producing Visible Seams In Goldfish's 2018 Edition: Restored the original mesh export method for character models only. WHY:
+* Character Export Producing Visible Seams In Goldfish's 2018 Edition: Restored the original mesh export method for character models only, and created standalone interface. WHY:
 		* Character export (skinned models) requires vertex-based remapping (RemapByVT) to preserve vertex welding for smooth skin deformation.
 		* World object export uses UV-based remapping (RemapByUV1/UV2), which splits vertices at UV seams for correct texture mapping, but this breaks skin welding and causes visible seams on characters.
 
