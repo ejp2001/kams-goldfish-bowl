@@ -40,19 +40,19 @@ For practical considerations, I opted to completely remove skinned character han
 
 ## What's Added:
 	
-** Anim Bake (Biped to Ped)**  Bake any animation that can be run on 3ds Max biped to the selected GTA Character. Save animation using IFP_IO. First release - rather clumbsy - expect bugs.
+* Anim Bake (Biped to Ped) *  Bake any animation that can be run on 3ds Max biped to the selected GTA Character. Save animation using IFP_IO. First release - rather clumbsy - expect bugs.
 
-** Added File Management Capabilities To The IFP_IO **  No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files, if they are still able to be read (can regress back to last good anim in file - does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
+* Added File Management Capabilities To The IFP_IO *  No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files, if they are still able to be read (can regress back to last good anim in file - does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
 
-** UV Animation Export **  The DFF IO will automatically export any texture animations it finds on the timeline. Supports multiple animations per-object - all animations must be equal duration to avoid skipping. 
+* UV Animation Export *  The DFF IO will automatically export any texture animations it finds on the timeline. Supports multiple animations per-object - all animations must be equal duration to avoid skipping. 
 
-** UV Animation Import **  Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. Timing errors may develop after multiple I/O operations.
+* UV Animation Import *  Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. Timing errors may develop after multiple I/O operations.
 	
-** UV Animation Editor **  Creates sprite sheet animations. Only slightly modified version of TVanimHelper from SA_TOOLS. Users familiar with SA_TOOLS will need no introduction. Original help files can be found in Help folder (this repo).
+* UV Animation Editor *  Creates sprite sheet animations. Only slightly modified version of TVanimHelper from SA_TOOLS. Users familiar with SA_TOOLS will need no introduction. Original help files can be found in Help folder (this repo).
 	
-** World Object Animation Import (IFP) **  Select the root dummy of any dummy hierarchy and import an IFP Animation file. If an animation matching the dummy hierarchy exists in the IFP file it will be added to the timeline.
+* World Object Animation Import (IFP) *  Select the root dummy of any dummy hierarchy and import an IFP Animation file. If an animation matching the dummy hierarchy exists in the IFP file it will be added to the timeline.
 
-** World Object Animation Export (IFP) ** *Not to be confused with Character IFP animations.* Working code evolved from UV_ANIM_EXPORT, SA_TOOLS plugin. Select the root dummy of any dummy hierarchy with a timeline animation, and click any of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
+* World Object Animation Export (IFP) * *Not to be confused with Character IFP animations.* Working code evolved from UV_ANIM_EXPORT, SA_TOOLS plugin. Select the root dummy of any dummy hierarchy with a timeline animation, and click any of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
 
 * Bug Fixes; Script Enhancements; Error Checking (the usual stuff).
 	
