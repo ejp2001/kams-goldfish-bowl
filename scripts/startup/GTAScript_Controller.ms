@@ -329,9 +329,11 @@ utility Kams_Scripts "GTA Tools 2026" (
 			label about_5 "Various AI sources"
 			
 			label about_6 " -- 2026 Edition --" offset: [0.0,7.0,0.0]
-			label about_7 "Last update: 10.03.2026"
-			label about_8 "by CLAUDE"
+			label about_7 "Last update: 30.03.2026"
+			label about_8 "Additional AI code"
 			label about_9 "at the direction of E2001"
+			HyperLink l_bottom "See Repo For Updates" align:#center   height:18 address:"https://github.com/ejp2001/kams-goldfish-bowl" color:(color 10 147 225) hovercolor:(color 94 198 255) visitedcolor:(color 10 147 225)			
+			
 		)
 		createDialog KAM_About
 	)
