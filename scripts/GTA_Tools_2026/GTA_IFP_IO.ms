@@ -68,6 +68,39 @@ fn GTAAnim_FindRigRootsInScene = (
 	roots
 )
 
+fn GTAAnim_CountRigBones rigRoot = (
+	if rigRoot == undefined then return 0
+	local c = 0
+	for n in (GTAAnim_CollectHierarchy rigRoot) do (
+		if (GTAAnim_GetBoneID n) != undefined then c += 1
+	)
+	c
+)
+
+fn GTAAnim_PickBestRigRoot roots = (
+	if roots.count < 1 then return undefined
+	if roots.count == 1 then return roots[1]
+
+	local preferredNames = #("root", "normal", "fat", "ripped")
+	for n in preferredNames do (
+		for r in roots do (
+			if (toLower r.name) == n and r.parent == undefined then return r
+		)
+	)
+
+	local bestRoot = roots[1]
+	local bestCount = GTAAnim_CountRigBones bestRoot
+	for r in roots do (
+		local c = GTAAnim_CountRigBones r
+		if c > bestCount then (
+			bestCount = c
+			bestRoot = r
+		)
+	)
+
+	bestRoot
+)
+
 fn GTAAnim_GetSkinModifier node = (
 	if node == undefined then return undefined
 	if not isProperty node #modifiers then return undefined
@@ -118,19 +151,22 @@ fn GTAAnim_ResolveActiveRigRoot = (
 			)
 		)
 
-		local selRoot = GTAAnim_FindRigRootFromNode selection[1]
-		if selRoot != undefined then (
-			GTA_ACTIVE_RIG_ROOT = selRoot
-			return selRoot
+		for s in selection do (
+			local selRoot = GTAAnim_FindRigRootFromNode s
+			if selRoot != undefined then (
+				GTA_ACTIVE_RIG_ROOT = selRoot
+				return selRoot
+			)
 		)
 	)
 
 	if GTA_ACTIVE_RIG_ROOT != undefined and isValidNode GTA_ACTIVE_RIG_ROOT then return GTA_ACTIVE_RIG_ROOT
 
 	local roots = GTAAnim_FindRigRootsInScene()
-	if roots.count == 1 then (
-		GTA_ACTIVE_RIG_ROOT = roots[1]
-		return roots[1]
+	local picked = GTAAnim_PickBestRigRoot roots
+	if picked != undefined then (
+		GTA_ACTIVE_RIG_ROOT = picked
+		return picked
 	)
 
 	undefined
