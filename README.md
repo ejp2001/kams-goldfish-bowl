@@ -54,7 +54,7 @@ Installation and usage:
 	
 * World Object Animation Import (IFP):  Select the root dummy of any dummy hierarchy and import an IFP Animation file. If an animation matching the dummy hierarchy exists in the IFP file it will be added to the timeline.
 
-* World Object Animation Export (IFP): *Not to be confused with Character IFP animations.* Function derived from MAP_ANIM_EXPORT, SA_TOOLS plugin. Select the root dummy of any dummy hierarchy with a timeline animation, and click any of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
+* World Object Animation Export (IFP): *Not related to Character or IFP IO.* Function derived from MAP_ANIM_EXPORT, SA_TOOLS plugin. Select the root dummy of any dummy hierarchy with a timeline animation, and click any of the IFP Exporter buttons. A file dialog will open. Choose a filename and save. The animation is now ready for use in game.
 
 * Bug Fixes; Script Enhancements; Error Checking (the usual stuff).
 	
