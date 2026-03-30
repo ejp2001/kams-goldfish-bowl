@@ -1,6 +1,6 @@
 # kams-goldfish-bowl
 
-This repo is an attempt to explore all possible fixes, improvements, and additions to *Kam's GTA Scripts for 3DS Max: 2005 original version*, *Kam's 2018 Goldfish Edition*, and *any-and-all other available MaxScript resources worth considering*. You will not find links to any of these resources in this repo. Locating them on the Internet is your problem. However; I will refer to any third-party tools whenever I think it appropriate.
+This repo is an attempt to explore all possible fixes, improvements, and additions to *Kam's GTA Scripts for 3DS Max: 2005 original version*, *Kam's 2018 Goldfish Edition*, and *any-and-all other available MaxScript resources worth considering*. You will not find links to any of these resources in this repo. Locating them on the Internet is your problem. However; I will refer to any third-party tools wherever relationships exist.
 
 My primary focus is on GTA San Andreas compatibility; although, I make every attempt to preserve whatever GTAIII and Vice City functionality already exists.
 
@@ -40,7 +40,7 @@ For practical considerations, I opted to completely remove skinned character han
 
 ## What's Added:
 	
-* Anim Bake (Biped to Ped):   Bake any animation that can be run on 3ds Max biped to the selected GTA Character. Save animation using IFP_IO. First release - rather clumbsy - expect bugs.
+* Anim Bake (Biped to Ped):   Bake any animation that can be run on 3ds Max biped to the selected GTA Character. Save animation using IFP_IO.  *First release - rather clumbsy - expect bugs.
 
 * Added File Management Capabilities To The IFP_IO:   No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files: If files are still able to be read, this tool can restore back to last good animation (does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
 
@@ -78,6 +78,6 @@ For practical considerations, I opted to completely remove skinned character han
 
 
 
-** Many thanks to AI for making all of my dreams of not having to learn to do this myself FINALLY come true!
+** Many thanks to AI for making all of my dreams of not having to learn to do this myself a reality!
 
 
