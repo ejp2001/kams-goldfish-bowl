@@ -80,7 +80,6 @@ This repository restores and preserves **Kam's GTA Scripts (2005)** with selecti
 ### Animation import/export separated into per-consumer copies to prevent cross-contamination:
 - **gtaCharIFPio_Fn.ms**: Character animation import/export (2005 logic) - loaded by GTA_IFP_IO.ms
 - **gtaDFFIFPio_Fn.ms**: World object animation import/export (2018 logic) - loaded by GTA_DFF_IO.ms
-- **Original `gtaIFPio_Fn.ms`** kept as reference (not loaded by any tool) - contains original 2005 animation logic for reference and potential future use
 
 
 Authoritative references (do not edit directly):
@@ -141,7 +140,6 @@ Notes:
 - Separated into per-consumer copies to prevent cross-contamination
 - `gtaCharIFPio_Fn.ms` — loaded by GTA_IFP_IO.ms (character animations)
 - `gtaDFFIFPio_Fn.ms` — loaded by GTA_DFF_IO.ms (world object animations)
-- Original `gtaIFPio_Fn.ms` kept as reference (not loaded by any tool)
 - `ApplyAnim` - Main function to apply IFP keyframes to Max objects
 - Handles framerate conversion (30fps → Max fps)
 - Bone matching by name or "BoneID" user property
@@ -204,6 +202,40 @@ try (closeRolloutFloater IFP_IO_GTAsa) catch ()  -- In DFF_IO
 - Forgetting to test in-game (Max preview ≠ game rendering)
 
 **Tool Installation**: Copy `scripts/` folder contents to `3DS_MAX_INSTALLATION/scripts/`. Startup script adds GTA Tools menu automatically.
+
+## Internal Asset-Type Rules (AI-only)
+
+These are internal guidance rules for AI assistance and should not be copied into public-facing README content.
+
+### Character vs. Scenery vs. Vehicle
+- Treat Character, Scenery, and Vehicle assets as separate workflows, even when they share `.dff` or `.ifp` container formats.
+- If a model uses Skin, BoneID-driven logic, or character-style hierarchy/animation handling, use Character IO.
+- Scenery and Vehicle currently share the DFF IO interface, but they do not follow identical behavior rules.
+
+### Materials
+- GTA Materials are primarily vehicle-oriented in this project.
+- They may work on Character or Scenery assets but are generally less reliable for day-to-day authoring there.
+
+### UV Animation
+- UV animation belongs primarily to Scenery workflow.
+- Vehicle UV animation should be treated as experimental unless validated by in-game evidence.
+
+### Vehicle Animation Assumptions
+- Vehicle animation behavior is still being mapped and should not be treated as equivalent to character IFP behavior.
+- Prefer hierarchy/object-driven assumptions first for vehicles unless verified otherwise.
+
+### Embedded Collision and Shadow Data
+- Embedded collision/shadow payload inside `.dff` is vehicle-only for GTA SA.
+- Attempting vehicle-style embedded collision/shadow in Character or Scenery DFFs is unsafe and may crash the game.
+- Shadow mesh data normally belongs to collision data (`.col`), not as a generic DFF feature.
+- If `.col` is used as a vehicle embedded-collision source, require exactly one collision model and one shadow mesh.
+- Multi-model `.col` archives are invalid as a vehicle embedded-collision source.
+
+### IFP Archive Editing
+- Treat IFP files as animation archives, not single animation files.
+- The common SA IFP "EOF bug" is usually append-at-wrong-offset corruption, not a true EOF condition.
+- For ANP3/SA IFP, logical append point is `fileLength + 8` based on header-stored file length.
+- If appended animations are not recognized, verify logical file length rewrite and animation-count header update.
 
 ## Vertex Topology & UV Mapping (January 2026 Research)
 

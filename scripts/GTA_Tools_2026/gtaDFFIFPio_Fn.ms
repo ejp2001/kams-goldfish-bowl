@@ -1,6 +1,6 @@
 -- gtaDFFIFPio_Fn.ms — World object animation functions (loaded by GTA_DFF_IO.ms)
--- Separated from gtaIFPio_Fn.ms to prevent cross-contamination with character animation code.
--- Source: modding resources/kams original mse files decrypted/gtaIFPio_Fn.ms
+-- Separated into world-object-only consumer copy to prevent cross-contamination with character animation code.
+-- Source: Kam 2005 animation logic adapted for world-object workflow (modding resources/kams original mse files decrypted/)
 -- (February 2026) - Removed problematic tm==0.0 block that caused "Key index out of range" errors
 -------------
 --Import Fn--

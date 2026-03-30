@@ -1,6 +1,6 @@
 -- gtaCharIFPio_Fn.ms — Character animation functions (loaded by GTA_IFP_IO.ms)
--- Separated from gtaIFPio_Fn.ms to prevent cross-contamination with world object animation code.
--- Source: modding resources/kams original mse files decrypted/gtaIFPio_Fn.ms
+-- Separated into character-only consumer copy to prevent cross-contamination with world object animation code.
+-- Source: Kam 2005 character animation logic (modding resources/kams original mse files decrypted/)
 -- (February 2026) - Removed problematic tm==0.0 block that caused "Key index out of range" errors
 -------------
 --Import Fn--
