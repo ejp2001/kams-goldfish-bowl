@@ -48,7 +48,7 @@ For practical considerations, I opted to completely remove skinned character han
 
 * UV Animation Import:  Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. Timing errors may develop after multiple I/O operations.
 	
-* UV Animation Editor:  Creates sprite sheet animations. Only slightly modified version of TVanimHelper from SA_TOOLS. Users familiar with SA_TOOLS will need no introduction. Original help files can be found in Help folder (this repo).
+* UV Animation Editor:  Creates sprite sheet animations. Slightly modified version of TVanimHelper from SA_TOOLS. Users familiar with SA_TOOLS will need no introduction. Original help files can be found in Help folder (this repo).
 	
 * World Object Animation Import (IFP):  Select the root dummy of any dummy hierarchy and import an IFP Animation file. If an animation matching the dummy hierarchy exists in the IFP file it will be added to the timeline.
 
