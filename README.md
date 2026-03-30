@@ -46,11 +46,11 @@ Installation and usage:
 
 * Added File Management Capabilities To The IFP_IO:   No more need for external tools! Fixes EOF bug introduced by previous versions. Utility to repair corrupt IFP files: If files are still able to be read, this tool can restore back to last good animation (does not recover corrupt animations). Supports multiple characters / animations in scene. Select target rig by mesh (may be buggy).
 
-* UV Animation Export:   The DFF IO will automatically export any texture animations it finds on the timeline. Supports multiple animations per-object - all animations must be equal duration to avoid skipping. 
+* UV Animation Export:   The DFF IO will automatically export any texture animations it finds on the timeline. Supports multiple animations per-object - any multiple animations must be of equal duration to avoid skipping. 
 
-* UV Animation Import:  Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. Timing errors may develop after multiple I/O operations.
+* UV Animation Import:  Animations in dff files will be automatically detected in dff file and will be added to the 3DS Max timelime on import. Timing errors may develop over multiple I/O operations.
 	
-* UV Animation Editor:  Creates sprite sheet animations. Slightly modified version of TVanimHelper from SA_TOOLS. Users familiar with SA_TOOLS will need no introduction. Original help files can be found in Help folder (this repo).
+* UV Animation Editor:  Creates sprite sheet animations. This is a sightly modified version of TVanimHelper from SA_TOOLS. Users familiar with SA_TOOLS will need no introduction. Original help files can be found in Help folder (this repo).
 	
 * World Object Animation Import (IFP):  Select the root dummy of any dummy hierarchy and import an IFP Animation file. If an animation matching the dummy hierarchy exists in the IFP file it will be added to the timeline.
 
@@ -74,7 +74,7 @@ Installation and usage:
 
 * Character Import/Export via DFF_IO.
 
-* Minor functions/utilities wherein acceptable native 3ds Max alternatives exist.
+* A few Redundant functions/utilities wherein acceptable native 3ds Max alternatives already exist (for simplification).
 
 * Compatibility with earlier versions of Kams GTA Scripts.
 
