@@ -15,6 +15,7 @@ fileIn (scriptspath+"\\GTA_Tools_2026\\gtaCharIFPio_Fn.ms") quiet:true
 
 AnimInfo = #()
 ifpname = undefined
+global GTA_ACTIVE_RIG_ROOT
 
 fn GTAAnim_CollectHierarchy rootObj = (
 	local nodes = #()
@@ -42,6 +43,107 @@ fn GTAAnim_GetSceneBoneNodes = (
 	boneNodes
 )
 
+fn GTAAnim_GetBoneID node = (
+	if node == undefined then return undefined
+	local boneID = undefined
+	try (boneID = getUserProp node "BoneID") catch ()
+	if boneID == undefined or boneID == "" then return undefined
+	try (boneID as integer) catch (undefined)
+)
+
+fn GTAAnim_FindRigRootFromNode node = (
+	local cur = node
+	while cur != undefined do (
+		if (GTAAnim_GetBoneID cur) == 0 then return cur
+		cur = cur.parent
+	)
+	undefined
+)
+
+fn GTAAnim_FindRigRootsInScene = (
+	local roots = #()
+	for node in (GTAAnim_GetSceneNodes()) do (
+		if (GTAAnim_GetBoneID node) == 0 then append roots node
+	)
+	roots
+)
+
+fn GTAAnim_GetSkinModifier node = (
+	if node == undefined then return undefined
+	if not isProperty node #modifiers then return undefined
+	for m in node.modifiers do (
+		if classof m == Skin then return m
+	)
+	undefined
+)
+
+fn GTAAnim_ResolveRigRootFromSkinnedMesh meshNode = (
+	local parentRoot = GTAAnim_FindRigRootFromNode meshNode
+	if parentRoot != undefined then return parentRoot
+
+	local skinMod = GTAAnim_GetSkinModifier meshNode
+	if skinMod == undefined then return undefined
+
+	local roots = GTAAnim_FindRigRootsInScene()
+	if roots.count < 1 then return undefined
+
+	local bestRoot = undefined
+	local bestCount = 0
+	local tie = false
+	for r in roots do (
+		local c = 0
+		for b in (GTAAnim_CollectHierarchy r) do (
+			local deps = undefined
+			try (deps = refs.dependents b) catch (deps = undefined)
+			if deps != undefined and (findItem deps skinMod) > 0 then c += 1
+		)
+		if c > bestCount then (
+			bestCount = c
+			bestRoot = r
+			tie = false
+		) else if c == bestCount and c > 0 then tie = true
+	)
+
+	if bestCount > 0 and not tie then return bestRoot
+	undefined
+)
+
+fn GTAAnim_ResolveActiveRigRoot = (
+	if selection.count > 0 then (
+		for s in selection do (
+			local skinRoot = GTAAnim_ResolveRigRootFromSkinnedMesh s
+			if skinRoot != undefined then (
+				GTA_ACTIVE_RIG_ROOT = skinRoot
+				return skinRoot
+			)
+		)
+
+		local selRoot = GTAAnim_FindRigRootFromNode selection[1]
+		if selRoot != undefined then (
+			GTA_ACTIVE_RIG_ROOT = selRoot
+			return selRoot
+		)
+	)
+
+	if GTA_ACTIVE_RIG_ROOT != undefined and isValidNode GTA_ACTIVE_RIG_ROOT then return GTA_ACTIVE_RIG_ROOT
+
+	local roots = GTAAnim_FindRigRootsInScene()
+	if roots.count == 1 then (
+		GTA_ACTIVE_RIG_ROOT = roots[1]
+		return roots[1]
+	)
+
+	undefined
+)
+
+fn GTAAnim_GetActiveRigBoneNodes = (
+	local rigRoot = GTAAnim_ResolveActiveRigRoot()
+	if rigRoot == undefined then return #()
+	local nodes = #()
+	for node in (GTAAnim_CollectHierarchy rigRoot) where (GTAAnim_GetBoneID node) != undefined do append nodes node
+	nodes
+)
+
 fn GTAAnim_GetNameFromPath fname maxLen:0 = (
 	local outName = getFilenameFile fname
 	if outName == undefined or outName == "" then outName = "KamMaxScriptExp"
@@ -60,15 +162,25 @@ fn GTAAnim_StoreOriginalPose nodes = (
 
 fn GTAAnim_ClearSelectionKeys nodes = (
 	for node in nodes do (
-		try (deletekeys node.pos.controller) catch ()
-		try (deletekeys node.rotation.controller) catch ()
-		try (deletekeys node.scale.controller) catch ()
+		if (GTAAnim_GetBoneID node) != undefined then (
+			try (deletekeys node.pos.controller) catch ()
+			try (deletekeys node.rotation.controller) catch ()
+			try (deletekeys node.scale.controller) catch ()
+		)
+	)
+)
+
+fn GTAAnim_EnforceRootOnlyPositionKeys nodes = (
+	for node in nodes do (
+		local boneID = GTAAnim_GetBoneID node
+		if boneID != undefined and boneID != 0 then (
+			try (deletekeys node.pos.controller) catch ()
+		)
 	)
 )
 
 fn GTAAnim_GetApplyNodes = (
-	if selection.count > 0 then return (selection as array)
-	GTAAnim_GetSceneNodes()
+	GTAAnim_GetActiveRigBoneNodes()
 )
 
 fn GTAAnim_NormalizeLoadedIFPInternalName internalName ver fallbackPath:undefined = (
@@ -621,14 +733,20 @@ rollout animateRoll "Character Animation" (
 	
 	-- Apply selected animation to timeline
 	on apyAnim pressed do (
-		if (AnimList.selection > 0)AND($selection.count >0) then (
-			local rult = resetPost $selection slidertime
+		if (AnimList.selection > 0) then (
+			local applyNodes = GTAAnim_GetApplyNodes()
+			if applyNodes.count == 0 then (
+				messagebox "No active GTA rig found. Select any node from the target GTA rig and retry." title:"Apply Animation"
+				return()
+			)
+
+			local rult = resetPost applyNodes slidertime
 			if rult == false then RecOrg.text = "M"
-			select $*
 			local f = fopen ifpname "rb"
 			try (
 				fseek f AnimInfo[2][AnimList.selection] #seek_set
-				ApplyAnim f ($selection as array) skipPos.checked slidertime AnimInfo[3]
+				ApplyAnim f applyNodes skipPos.checked slidertime AnimInfo[3]
+				GTAAnim_EnforceRootOnlyPositionKeys applyNodes
 			) catch (
 				format "*** ApplyAnim error: %\n" (getCurrentException())
 			)
@@ -639,56 +757,67 @@ rollout animateRoll "Character Animation" (
 	
 	-- Double-click animation list to apply
 	on AnimList doubleclicked idx do (
-		local rult = resetPost $selection slidertime
+		if AnimList.selection == 0 then return()
+
+		local applyNodes = GTAAnim_GetApplyNodes()
+		if applyNodes.count == 0 then (
+			messagebox "No active GTA rig found. Select any node from the target GTA rig and retry." title:"Apply Animation"
+			return()
+		)
+
+		local rult = resetPost applyNodes slidertime
 		if rult == false then RecOrg.text = "M"
-		select $*
-		if (getUserProp $selection[1] "OrgPos") == undefined then (
-			GTAAnim_StoreOriginalPose ($selection as array)
+		if (getUserProp applyNodes[1] "OrgPos") == undefined then (
+			GTAAnim_StoreOriginalPose applyNodes
 			RecOrg.text = "**"
 		)
-		GTAAnim_ClearSelectionKeys ($selection as array)
+		GTAAnim_ClearSelectionKeys applyNodes
 		sliderTime = 0
 		local f = fopen ifpname "rb"
 		try (
 			fseek f AnimInfo[2][AnimList.selection] #seek_set
 			format "\nAnime: % at [%]\n" AnimList.selected (ftell f)
-			ApplyAnim f ($selection as array) skipPos.checked slidertime AnimInfo[3]
+			ApplyAnim f applyNodes skipPos.checked slidertime AnimInfo[3]
 		) catch (
 			format "*** ApplyAnim error: %\n" (getCurrentException())
 		)
 		try (fclose f) catch ()
-		-- Post-cleanup: remove residual position keys on non-root bones, remove all scale keys
-		for i = 1 to $selection.count do (
-			if (getUserProp $selection[i] "BoneID") != 0 then
-				deletekeys $selection[i].pos.controller
-			deletekeys $selection[i].scale.controller
-		)
+		-- Policy: only root translation is allowed; all non-root position keys are removed.
+		GTAAnim_EnforceRootOnlyPositionKeys applyNodes
+		for i = 1 to applyNodes.count do deletekeys applyNodes[i].scale.controller
 		gc()
 	)--end on AnimList doubleclicked
 	
 	-- Batch apply multiple animations
 	on batAnim pressed do (
-		if (AnimList.selection > 0)AND($selection.count >0) then (
+		if (AnimList.selection > 0) then (
+			local applyNodes = GTAAnim_GetApplyNodes()
+			if applyNodes.count == 0 then (
+				messagebox "No active GTA rig found. Select any node from the target GTA rig and retry." title:"Batch Animation"
+				return()
+			)
+
 			local rult = undefined
 			sliderTime = 0
-			if (getUserProp $selection[1] "OrgPos") == undefined then (
-				for i = 1 to $selection.count do (
-					setUserProp $selection[i] "OrgPos" $selection[i].pos
-					setUserProp $selection[i] "OrgRot" [$selection[i].rotation.x,$selection[i].rotation.y,$selection[i].rotation.z]
-					setUserProp $selection[i] "OrgRotW" $selection[i].rotation.w
-					setUserProp $selection[i] "Orgscl" $selection[i].scale
+			if (getUserProp applyNodes[1] "OrgPos") == undefined then (
+				for i = 1 to applyNodes.count do (
+					setUserProp applyNodes[i] "OrgPos" applyNodes[i].pos
+					setUserProp applyNodes[i] "OrgRot" [applyNodes[i].rotation.x,applyNodes[i].rotation.y,applyNodes[i].rotation.z]
+					setUserProp applyNodes[i] "OrgRotW" applyNodes[i].rotation.w
+					setUserProp applyNodes[i] "Orgscl" applyNodes[i].scale
 				)
 			)
 			
 			local f = fopen ifpname "rb"
 			try (
 				for tt = astart.value to aend.value do (
-					rult = resetPost $selection slidertime
+					rult = resetPost applyNodes slidertime
 					if rult == false then RecOrg.text = "M"
 				
 					fseek f AnimInfo[2][tt] #seek_set
 				
-					ApplyAnim f ($selection as array) skipPos.checked slidertime AnimInfo[3]
+					ApplyAnim f applyNodes skipPos.checked slidertime AnimInfo[3]
+					GTAAnim_EnforceRootOnlyPositionKeys applyNodes
 
 					animationRange = interval 0 (animationRange.end + 1)
 					slidertime = animationRange.end
@@ -1101,10 +1230,9 @@ rollout animateRoll "Character Animation" (
 		) else if AnimInfo[3] != 0x33504E41 then (
 			messagebox "Add New only works with SA format IFP files currently.\n\nVC format support coming soon." title:"Format Not Supported"
 		) else (
-			select $*
-			for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
-			if $selection.count == 0 then (
-				messagebox "No bones with BoneID found in the scene!\n\nSet BoneID user properties on bones.\n\nExample: setUserProp $myBone \"BoneID\" 0" title:"No Bones"
+			local exportNodes = GTAAnim_GetActiveRigBoneNodes()
+			if exportNodes.count == 0 then (
+				messagebox "No active GTA rig found. Select any node from the target GTA rig and retry." title:"No Active Rig"
 			) else (
 					-- Create input dialog
 					rollout newAnimDialog "Add New Animation" (
@@ -1158,7 +1286,7 @@ rollout animateRoll "Character Animation" (
 								-- Append at the logical end of animation data, not EOF.
 								fseek f (currentFileLength + 8) #seek_set
 								
-								animLength = ExpsaIFP f ($selection as array) newAnimName
+								animLength = ExpsaIFP f exportNodes newAnimName
 								if animLength == undefined then (
 									fclose f
 									messagebox "Failed to export animation data!\n\nCheck that the selected bones have animation keys." title:"Export Failed"
@@ -1213,10 +1341,9 @@ rollout animateRoll "Character Animation" (
 	
 	-- Replace animation in loaded IFP file
 	on ReplaceAnim pressed do (
-		select $*
 		sliderTime = 0
-		for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
-		if (AnimList.selection != 0)AND($selection.count > 0) then (
+		local exportNodes = GTAAnim_GetActiveRigBoneNodes()
+		if (AnimList.selection != 0)AND(exportNodes.count > 0) then (
 			local OK2Append = false
 			-- Verify format matches: State 1 = ANP3 (0x33504E41), State 2 = ANPK (0x4B504E41)
 			if (formatType.state == 2)AND(AnimInfo[3] == 0x4B504E41) then OK2Append = true
@@ -1258,8 +1385,8 @@ rollout animateRoll "Character Animation" (
 					for i = 1 to AnimInfo[1].count do (
 						if i == selIndex then (
 							local thisLength = undefined
-							if AnimInfo[3] == 0x33504E41 then thisLength = ExpsaIFP ff ($selection as array) AnimList.selected
-							else thisLength = expAnim ff ($selection as array) useBoneID.checked AnimList.selected
+							if AnimInfo[3] == 0x33504E41 then thisLength = ExpsaIFP ff exportNodes AnimList.selected
+							else thisLength = expAnim ff exportNodes useBoneID.checked AnimList.selected
 							if thisLength == undefined then (
 								fclose f
 								fclose ff
@@ -1335,23 +1462,26 @@ rollout animateRoll "Character Animation" (
 				)
 				gc()
 			)
+		) else if AnimList.selection == 0 then (
+			messagebox "Please select an animation to replace." title:"No Selection"
+		) else (
+			messagebox "No active GTA rig found. Select any node from the target GTA rig and retry." title:"No Active Rig"
 		)--end if AnimList.selection
 	)--end on ReplaceAnim 
 	
 	-- Export selection as new IFP file
 	on saveAnim pressed do (
-		select $*
-		for obj in $selection where (getUserProp obj "BoneID") == undefined do deselect obj
-		if ($selection.count > 0) then (
+		local exportNodes = GTAAnim_GetActiveRigBoneNodes()
+		if (exportNodes.count > 0) then (
 			local Sname = getSaveFileName caption:"Save GTA Animation file" types:"IFP animation (*.ifp)|*.ifp"
 			if Sname != undefined then (
-				if $selection.count == 0 then (
-					messagebox "No bones with BoneID found in the scene!\n\nSet BoneID user properties on bones.\n\nExample: setUserProp $myBone \"BoneID\" 0" title:"No Bones"
+				if exportNodes.count == 0 then (
+					messagebox "No active GTA rig found. Select any node from the target GTA rig and retry." title:"No Active Rig"
 				) else (
 					-- Check for animation keys
 					local hasKeys = false
 					local keyInfo = ""
-					for obj in $selection do (
+					for obj in exportNodes do (
 						local rotKeys = obj.rotation.controller.keys.count
 						local posKeys = obj.pos.controller.keys.count
 						keyInfo += "  " + obj.name + ": " + (rotKeys as string) + " rot, " + (posKeys as string) + " pos keys\n"
@@ -1367,7 +1497,7 @@ rollout animateRoll "Character Animation" (
 							if formatType.state == 1 then (   					--ANP3 (SA)
 								local exportAnimName = GTAAnim_GetNameFromPath Sname maxLen:23
 								GTAAnim_WriteSingleIFPHeader f 0x33504E41 Sname
-								local thisLength = ExpsaIFP f ($selection as array) exportAnimName
+								local thisLength = ExpsaIFP f exportNodes exportAnimName
 								
 								if thisLength == undefined then (
 									fclose f
@@ -1382,7 +1512,7 @@ rollout animateRoll "Character Animation" (
 							) else (   					   									--ANPK (III/VC)
 								GTAAnim_WriteSingleIFPHeader f 0x4B504E41 Sname
 								local anpkAnimName = if AnimList.selection != 0 then AnimList.selected else (GTAAnim_GetNameFromPath Sname)
-								local thisLength = expAnim f ($selection as array) useBoneID.checked anpkAnimName
+								local thisLength = expAnim f exportNodes useBoneID.checked anpkAnimName
 								
 								if thisLength == undefined then (
 									fclose f
@@ -1409,12 +1539,12 @@ rollout animateRoll "Character Animation" (
 							format"//\n//\n//This is Header Section\n"  
 
 							if formatType.state == 1 then (   					--ANP3 (SA)
-								local thisLength = gExpsaIFP ss ($selection as array) (GTAAnim_GetNameFromPath Sname2 maxLen:23)
+								local thisLength = gExpsaIFP ss exportNodes (GTAAnim_GetNameFromPath Sname2 maxLen:23)
 								format "c 4\nANP3\ni 1\n%\n" (thisLength + 28)
 								format "c 24\n%\n//\n//\n" (GTAAnim_GetNameFromPath Sname2 maxLen:23)
 								format "i 1\n1\n"
 							) else (																		--ANPK (III/VC)
-								local thisLength = gm_expAnim ss ($selection as array) useBoneID.checked AnimList.selected
+								local thisLength = gm_expAnim ss exportNodes useBoneID.checked AnimList.selected
 								format "c 4\nANPK\ni 1\n%\n" (thisLength + 28)
 								format "c 4\nINFO\ni 2\n20 1\n"
 								format "c 16\nKamMaxScriptExp\n//\n//\n"
@@ -1426,7 +1556,7 @@ rollout animateRoll "Character Animation" (
 					)
 				)
 			)--end if Sname
-		)--end if $selection.count
+		)--end if exportNodes.count
 	)--end on saveAnim
 )--end rollout animateRoll
 
@@ -1452,6 +1582,6 @@ rollout aboutRoll "About" (
 */
 
 if Kam_GTAsaIFP != undefined then ( closeRolloutFloater Kam_GTAsaIFP; gc() )
-Kam_GTAsaIFP = newRolloutFloater "IFP IO" 220 650 10 30
+Kam_GTAsaIFP = newRolloutFloater "IFP IO" 220 628 10 30
 addRollout animateRoll Kam_GTAsaIFP
 addRollout aboutRoll Kam_GTAsaIFP rolledup:true

@@ -45,6 +45,7 @@ utility Kams_Scripts "GTA Tools 2026" (
 	group "Animation" (
 		button script13 "IFP IO" width:140 align:#center tooltip:"Load, edit, and export IFP animation files"
 		button script14 "UV Animation" width:140 align:#center tooltip:"Create UV sprite animations from texture atlases" offset:[0,-5]
+		button script15 "Anim Bake" width:140 align:#center tooltip:"Bake biped animation to GTA character bones" offset:[0,-5]
 		button script05 "IFP dump" width:140 align:#center tooltip:"This script is for GMax only" offset:[0,-5]
 	)
 	
@@ -56,6 +57,19 @@ utility Kams_Scripts "GTA Tools 2026" (
 	on script14 pressed do (
 		try ( fileIn (scriptspath+"\\GTA_Tools_2026\\GTA_UV_ANI.ms")   )
 		catch messagebox "Could not load UV Animation script." title:"Can't find UV Animation script"
+	)
+	
+	on script15 pressed do (
+		local animBakePath = (scriptspath+"\\GTA_Tools_2026\\GTA_AnimBake.ms")
+		if doesFileExist animBakePath then
+		(
+			try ( fileIn animBakePath )
+			catch messagebox ("Could not load Anim Bake script.\n\nPath:\n" + animBakePath + "\n\nError:\n" + (getCurrentException() as string)) title:"Anim Bake Load Error"
+		)
+		else
+		(
+			messagebox ("Anim Bake script file not found:\n\n" + animBakePath + "\n\nCopy GTA_AnimBake.ms into GTA_Tools_2026.") title:"Can't find Anim Bake script"
+		)
 	)
 	
 	on script05 pressed do (

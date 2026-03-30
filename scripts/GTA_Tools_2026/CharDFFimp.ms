@@ -610,6 +610,7 @@ fn rTexture f mtl texEx showdetail = (
 )
 --end rTexture				--<i6>--
 --
+global ANIMBAKE_FORCE_STDMTL
 fn rMaterial f mattype texEx showdetail = (
 	if (readLong f) != 7 then ( format "Error in Material\n"; exit )
 	tmp = (readLong f #unsigned)
@@ -633,29 +634,27 @@ if (DebugMode == true)AND(texture_count == 0) then mtlflag[1] = true
     Gspc = readFloat f
     Gdif = readFloat f
 	gtaMatFlag = true
-	if (mattype == 1) and (GTA_Mtl != undefined) then (
-		mtl = GTA_Mtl()
-		mtl.color = color colR colG colB
-		mtl.alpha = colA
-		mtl.amb = Gamb
-		mtl.spc = Gspc
-		mtl.dif = Gdif
-		mtl.specular = color 0 0 0
+	   if (isProperty globals #ANIMBAKE_FORCE_STDMTL and ANIMBAKE_FORCE_STDMTL == true) or (mattype != 1 or GTA_Mtl == undefined) then (
+		   gtaMatFlag = false
+		   mtl = StandardMaterial()
+		   mtl.glossiness = 0
+		   mtl.soften = 0
+		   mtl.ambient = color 255 255 255
+		   mtl.diffuse = color 255 255 255 -- 100% diffuse
+		   mtl.specular = color 26 26 26   -- 10% specular (10% of 255)
+		   mtl.opacity = (colA/255.0 * 100) as integer
+		   mtl.specular_level = 10         -- 10% specular level
+	   ) else (
+		   mtl = GTA_Mtl()
+		   mtl.color = color colR colG colB
+		   mtl.alpha = colA
+		   mtl.amb = Gamb
+		   mtl.spc = Gspc
+		   mtl.dif = Gdif
+		   mtl.specular = color 0 0 0
 
-if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
-
-	) else (
-		gtaMatFlag = false
-		mtl = StandardMaterial()
-		mtl.glossiness = 0
-		mtl.soften = 0
-		mtl.Ambient = color colR colG colB 
-		mtl.diffuse = color colR colG colB
-		--mtl.specular = color 255 255 255
-        mtl.specular = color 0 0 0
-		mtl.opacity = (colA/255.0 * 100) as integer
-		mtl.specular_level = Gspc *100
-	)
+	if (DebugMode == true)AND(colA != 255)  then mtlflag[2] = true
+	   )
 	for i = 1 to texture_count do (
 		rTexture f mtl texEx showdetail
 	)
