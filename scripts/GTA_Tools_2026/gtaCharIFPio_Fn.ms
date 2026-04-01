@@ -2,6 +2,10 @@
 -- Separated into character-only consumer copy to prevent cross-contamination with world object animation code.
 -- Source: Kam 2005 character animation logic (modding resources/kams original mse files decrypted/)
 -- (February 2026) - Removed problematic tm==0.0 block that caused "Key index out of range" errors
+
+-- Forward-declare functions referenced before their definition to prevent MaxScript 2017 treating them as implicit locals.
+global GTAAnim_IsSARootBone -- used in ApplyAnim (line ~76), defined later in this file
+
 -------------
 --Import Fn--
 -------------

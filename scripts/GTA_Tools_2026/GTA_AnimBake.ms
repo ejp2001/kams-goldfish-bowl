@@ -16,6 +16,7 @@ global bakScriptPath = getFilenamePath (getThisScriptFilename())
 global bakIniPath = bakScriptPath + "GTA_AnimBake.ini"
 global GTA_ACTIVE_RIG_ROOT
 global GTA_ANIMBAKE_ALIGN_DUMMY
+global bakRescaleToFig -- forward-declared: defined later in file; pre-declare so MaxScript 2017 resolves it as a global in bakPostLoadSetup
 
 -- ---------------------------------------------------------------------------
 -- BoneID-authoritative mapping (gtaBoneID -> bipBone).
