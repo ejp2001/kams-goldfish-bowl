@@ -27,3 +27,6 @@ research/
 # Ignore deployment scripts and config
 *.ps1
 *.yaml
+
+# Local recovered Copilot chat exports
+recovered-chat-*.md

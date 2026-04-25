@@ -34,13 +34,13 @@ global GTA_BONEID_BIP_MAP = #(
 	#(33, "BipGTA L Forearm"),
 	#(34, "BipGTA L Hand"),
 	#(35, "BipGTA L Finger0"),
-	#(36, "BipGTA L Finger1"),
+	#(36, "BipGTA L Finger01"),
 	#(21, "BipGTA R Clavicle"),
 	#(22, "BipGTA R UpperArm"),
 	#(23, "BipGTA R Forearm"),
 	#(24, "BipGTA R Hand"),
 	#(25, "BipGTA R Finger0"),
-	#(26, "BipGTA R Finger1"),
+	#(26, "BipGTA R Finger01"),
 	#(41, "BipGTA L Thigh"),
 	#(42, "BipGTA L Calf"),
 	#(43, "BipGTA L Foot"),
@@ -50,9 +50,6 @@ global GTA_BONEID_BIP_MAP = #(
 	#(53, "BipGTA R Foot"),
 	#(54, "BipGTA R Toe0")
 )
-
--- Finger bones are held at rest pose for the full animation.
---global GTA_HOLD_BONE_IDS = #(25, 26, 35, 36)
 
 -- Critical bones: bake is aborted if ANY of these are missing in scene
 global GTA_CRITICAL_BONE_IDS = #(1, 2, 3, 22, 32, 41, 51)
@@ -765,16 +762,6 @@ fn bakBake startF endF saveBipPath =
 		return false
 	)
 
-	-- Resolve hold bones (fingers): by BoneID under active rig.
-	local holdNodes = #()
-	local skippedHold = #()
-	for holdID in GTA_HOLD_BONE_IDS do
-	(
-		local n = bakFindBoneByID rigRoot holdID
-		if n != undefined then append holdNodes n
-		else append skippedHold holdID
-	)
-
 	-- Build resolved pair list  #(#(gtaNode, bipNode or undefined), ...)
 	local pairs = #()
 	local unmappedBip = #()
@@ -806,20 +793,6 @@ fn bakBake startF endF saveBipPath =
 		local gn = pair[1]
 		if classof gn.rotation.controller != Euler_XYZ then
 			gn.rotation.controller = Euler_XYZ()
-	)
-	for hn in holdNodes do
-		if classof hn.rotation.controller != Euler_XYZ then
-			hn.rotation.controller = Euler_XYZ()
-
-	-- Capture rest-pose rotations for hold bones at frame 0 (local space).
-	local holdRestRots = #()
-	for n in holdNodes do
-	(
-		local r = at time 0 (
-			if n.parent != undefined then in coordsys parent n.rotation
-			else n.rotation
-		)
-		append holdRestRots (r as eulerAngles)
 	)
 
 	-- Preserve active target root orientation when requested.
@@ -886,17 +859,6 @@ fn bakBake startF endF saveBipPath =
 					)
 				)
 			)
-			-- Hold bones: write rest-pose local rotation at every frame
-			for k = 1 to holdNodes.count do (
-				local hn = holdNodes[k]
-				local hr = holdRestRots[k]
-				for f = startF to endF do
-					at time f (
-						hn.rotation.controller.x_rotation = hr.x
-						hn.rotation.controller.y_rotation = hr.y
-						hn.rotation.controller.z_rotation = hr.z
-					)
-			)
 			animationRange = interval startF endF
 		)
 	)
@@ -923,7 +885,6 @@ fn bakBake startF endF saveBipPath =
 	-- Report
 	local report = "Bake complete.\n"
 	report += "  Pairs baked : " + (pairs.count as string) + "\n"
-	report += "  Fingers held: " + (holdNodes.count as string) + " of " + (GTA_HOLD_BONE_IDS.count as string) + "\n"
 	report += "  Frames      : " + (startF as string) + " - " + (endF as string) + "\n"
 	if saveBipPath != undefined then (
 		if bipSaveErr == undefined then
@@ -938,10 +899,6 @@ fn bakBake startF endF saveBipPath =
 	if unmappedGta.count > 0 then (
 		report += "\nSkipped (GTA BoneID not found in active rig):\n"
 		for b in unmappedGta do report += "  " + (b as string) + "\n"
-	)
-	if skippedHold.count > 0 then (
-		report += "\nFinger BoneIDs not found in active rig (skipped):\n"
-		for b in skippedHold do report += "  " + (b as string) + "\n"
 	)
 	format "%\n" report
 	messageBox report title:"Bake Complete"
