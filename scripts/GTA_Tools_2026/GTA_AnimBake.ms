@@ -452,6 +452,107 @@ fn bakEnforceRootOnlyPositionKeys rigRoot =
 	removed
 )
 
+fn bakSetLinearDefaultTangents =
+(
+	-- Keep new keys linear for this session's bake workflow.
+	try (inTangentType = #linear) catch ()
+	try (outTangentType = #linear) catch ()
+	true
+)
+
+fn bakClearRigAnimationKeys rigRoot =
+(
+	if rigRoot == undefined then return 0
+	local cleared = 0
+	for n in (bakCollectHierarchy rigRoot) do
+	(
+		try (deletekeys n.rotation.controller; cleared += 1) catch ()
+		try (deletekeys n.pos.controller; cleared += 1) catch ()
+		try (deletekeys n.scale.controller; cleared += 1) catch ()
+	)
+	cleared
+)
+
+fn bakControllerKeyRange ctrl =
+(
+	if ctrl == undefined then return undefined
+	local keyCount = 0
+	try (keyCount = numKeys ctrl) catch (keyCount = 0)
+	if keyCount < 1 then return undefined
+
+	local minT = undefined
+	local maxT = undefined
+	for k = 1 to keyCount do
+	(
+		local kt = undefined
+		try (kt = getKeyTime ctrl k) catch (kt = undefined)
+		if kt != undefined then
+		(
+			if minT == undefined or kt < minT then minT = kt
+			if maxT == undefined or kt > maxT then maxT = kt
+		)
+	)
+	if minT == undefined then undefined else #(minT, maxT)
+)
+
+fn bakMergeTimeRange a b =
+(
+	if a == undefined then return b
+	if b == undefined then return a
+	#(amin #(a[1], b[1]), amax #(a[2], b[2]))
+)
+
+fn bakGetBipedAnimRange pairs bipRoot =
+(
+	local nodes = #()
+	if bipRoot != undefined then append nodes bipRoot
+	for p in pairs do
+	(
+		local bn = p[2]
+		if bn != undefined and (findItem nodes bn) == 0 then append nodes bn
+	)
+
+	local rng = undefined
+	for n in nodes do
+	(
+		if isProperty n #transform then
+			rng = bakMergeTimeRange rng (bakControllerKeyRange n.transform.controller)
+		if isProperty n #rotation then
+			rng = bakMergeTimeRange rng (bakControllerKeyRange n.rotation.controller)
+		if isProperty n #pos then
+			rng = bakMergeTimeRange rng (bakControllerKeyRange n.pos.controller)
+	)
+
+	if rng == undefined then interval animationRange.start animationRange.end
+	else interval rng[1] rng[2]
+)
+
+fn bakGetCurrentBipedAnimRange bipRoot =
+(
+	if bipRoot == undefined then return interval animationRange.start animationRange.end
+
+	local nodes = #(bipRoot)
+	for pair in GTA_BONEID_BIP_MAP do
+	(
+		local bn = bakResolveBipNode pair[2] bipRoot
+		if bn != undefined and (findItem nodes bn) == 0 then append nodes bn
+	)
+
+	local rng = undefined
+	for n in nodes do
+	(
+		if isProperty n #transform then
+			rng = bakMergeTimeRange rng (bakControllerKeyRange n.transform.controller)
+		if isProperty n #rotation then
+			rng = bakMergeTimeRange rng (bakControllerKeyRange n.rotation.controller)
+		if isProperty n #pos then
+			rng = bakMergeTimeRange rng (bakControllerKeyRange n.pos.controller)
+	)
+
+	if rng == undefined then interval animationRange.start animationRange.end
+	else interval rng[1] rng[2]
+)
+
 fn bakPostLoadSetup figPath =
 (
 	local bipRoot = bakFindBipRoot()
@@ -500,6 +601,7 @@ fn bakPostLoadSetup figPath =
 
 	dmy.position = [0,0,0]
 	GTA_ANIMBAKE_ALIGN_DUMMY = dmy
+	animationRange = bakGetCurrentBipedAnimRange bipRoot
 	format "[AnimBake] Post-load setup complete. Dummy: %\n" dmy.name
 	true
 )
@@ -591,6 +693,7 @@ fn bakSetBipHeight bipRoot h =
 fn bakSetupRig figPath dffPath =
 (
 	local rigDir   = bakScriptPath + "tools\\AnimRig\\"
+	bakSetLinearDefaultTangents()
 
 	-- User-requested hard reset: start from a clean scene every time.
 	try (resetMaxFile #noprompt) catch ()
@@ -738,6 +841,7 @@ fn bakSetupRig figPath dffPath =
 -- ---------------------------------------------------------------------------
 fn bakBake startF endF saveBipPath =
 (
+	-- Bake uses scene range by default; spinner values are ignored intentionally.
 	local bipRoot = bakFindBipRoot()
 	if bipRoot == undefined then (
 		messageBox "No biped found in scene. Run Setup Rig first." title:"Bake"
@@ -783,6 +887,14 @@ fn bakBake startF endF saveBipPath =
 		messageBox "No bone pairs resolved. Check scene contents." title:"Bake"
 		return false
 	)
+
+	-- Before baking, clear GTA keys and fit timeline to biped animation range.
+	bakClearRigAnimationKeys rigRoot
+	local bipRange = bakGetBipedAnimRange pairs bipRoot
+	animationRange = bipRange
+	local tpf = 4800 / frameRate
+	startF = (animationRange.start as integer) / tpf
+	endF = (animationRange.end as integer) / tpf
 
 	format "[AnimBake] Baking % pairs, frames % to %\n" pairs.count startF endF
 
@@ -985,7 +1097,12 @@ rollout bakRoll "GTA Anim Bake"
 	)
 
 	on btnPostLoad pressed do (
-		bakPostLoadSetup figPath
+		if bakPostLoadSetup figPath then
+		(
+			local tpf = 4800 / frameRate
+			spStart.value = (animationRange.start as integer) / tpf
+			spEnd.value   = (animationRange.end   as integer) / tpf
+		)
 	)
 
 	on btnFromScene pressed do (
@@ -1001,7 +1118,12 @@ rollout bakRoll "GTA Anim Bake"
 			if savePath == undefined then return()
 			if (getFileNameType savePath) != ".bip" then savePath += ".bip"
 		)
-		bakBake spStart.value spEnd.value savePath
+		local bakeOK = bakBake spStart.value spEnd.value savePath
+		if bakeOK then (
+			local tpf = 4800 / frameRate
+			spStart.value = (animationRange.start as integer) / tpf
+			spEnd.value   = (animationRange.end   as integer) / tpf
+		)
 	)
 )
 
