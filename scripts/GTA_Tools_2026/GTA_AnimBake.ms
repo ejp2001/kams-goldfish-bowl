@@ -13,7 +13,8 @@
 -- ============================================================================
 
 global bakScriptPath = getFilenamePath (getThisScriptFilename())
-global bakIniPath = bakScriptPath + "GTA_AnimBake.ini"
+global bakLegacyIniPath = bakScriptPath + "GTA_AnimBake.ini"
+global bakIniPath = bakLegacyIniPath
 global GTA_ACTIVE_RIG_ROOT
 global GTA_ANIMBAKE_ALIGN_DUMMY
 global bakRescaleToFig -- forward-declared: defined later in file; pre-declare so MaxScript 2017 resolves it as a global in bakPostLoadSetup
@@ -24,18 +25,22 @@ global bakRescaleToFig -- forward-declared: defined later in file; pre-declare s
 global GTA_BONEID_BIP_MAP = #(
 	#(0,  "BipGTA"),
 	#(1,  "BipGTA Pelvis"),
-	#(2,  "BipGTA Spine1"),
-	#(3,  "BipGTA Spine2"),
+	#(2,  "BipGTA Spine"),
+	#(3,  "BipGTA Spine1"),
 	#(4,  "BipGTA Neck"),
 	#(5,  "BipGTA Head"),
 	#(31, "BipGTA L Clavicle"),
 	#(32, "BipGTA L UpperArm"),
 	#(33, "BipGTA L Forearm"),
 	#(34, "BipGTA L Hand"),
+	#(35, "BipGTA L Finger0"),
+	#(36, "BipGTA L Finger1"),
 	#(21, "BipGTA R Clavicle"),
 	#(22, "BipGTA R UpperArm"),
 	#(23, "BipGTA R Forearm"),
 	#(24, "BipGTA R Hand"),
+	#(25, "BipGTA R Finger0"),
+	#(26, "BipGTA R Finger1"),
 	#(41, "BipGTA L Thigh"),
 	#(42, "BipGTA L Calf"),
 	#(43, "BipGTA L Foot"),
@@ -47,7 +52,7 @@ global GTA_BONEID_BIP_MAP = #(
 )
 
 -- Finger bones are held at rest pose for the full animation.
-global GTA_HOLD_BONE_IDS = #(25, 26, 35, 36)
+--global GTA_HOLD_BONE_IDS = #(25, 26, 35, 36)
 
 -- Critical bones: bake is aborted if ANY of these are missing in scene
 global GTA_CRITICAL_BONE_IDS = #(1, 2, 3, 22, 32, 41, 51)
@@ -117,14 +122,71 @@ fn bakPathToConfig pathVal =
 	p
 )
 
-fn bakLoadFlatPathConfig =
+fn bakTryWritableIniInDir baseDir =
+(
+	local d = bakNormalizePathSlashes baseDir
+	if d == "" then return ""
+
+	local settingsDir = d + "\\GTA_Tools_2026"
+	try (makeDir settingsDir all:true) catch ()
+
+	local candidate = settingsDir + "\\GTA_AnimBake.ini"
+	local testStream = undefined
+	try (testStream = openFile candidate mode:"a+") catch (testStream = undefined)
+	if testStream != undefined then
+	(
+		close testStream
+		return candidate
+	)
+
+	""
+)
+
+fn bakGetWritableIniPath =
+(
+	local candidate = ""
+
+	try (candidate = bakTryWritableIniInDir (getDir #userScripts)) catch (candidate = "")
+	if candidate != "" then return candidate
+
+	try (candidate = bakTryWritableIniInDir (getDir #plugcfg)) catch (candidate = "")
+	if candidate != "" then return candidate
+
+	try (candidate = bakTryWritableIniInDir (getDir #maxData)) catch (candidate = "")
+	if candidate != "" then return candidate
+
+	try (candidate = bakTryWritableIniInDir (getDir #temp)) catch (candidate = "")
+	if candidate != "" then return candidate
+
+	local legacyTest = undefined
+	try (legacyTest = openFile bakLegacyIniPath mode:"a+") catch (legacyTest = undefined)
+	if legacyTest != undefined then
+	(
+		close legacyTest
+		return bakLegacyIniPath
+	)
+
+	bakLegacyIniPath
+)
+
+fn bakGetIniSettingMerged sectionName keyName =
+(
+	local val = getINISetting bakIniPath sectionName keyName
+	if val == "" and bakIniPath != bakLegacyIniPath then
+	(
+		val = getINISetting bakLegacyIniPath sectionName keyName
+	)
+	val
+)
+
+fn bakLoadFlatPathConfigFromFile iniPath =
 (
 	local figVal = ""
 	local dffVal = ""
 
-	if doesFileExist bakIniPath then
+	if doesFileExist iniPath then
 	(
-		local f = openFile bakIniPath mode:"rt"
+		local f = openFile iniPath mode:"rt"
 		if f != undefined then
 		(
 			while not eof f do
@@ -146,9 +208,35 @@ fn bakLoadFlatPathConfig =
 	#(figVal, dffVal)
 )
 
+fn bakLoadFlatPathConfig =
+(
+	local vals = bakLoadFlatPathConfigFromFile bakIniPath
+	if (vals[1] == "" and vals[2] == "" and bakIniPath != bakLegacyIniPath) then
+	(
+		vals = bakLoadFlatPathConfigFromFile bakLegacyIniPath
+	)
+	vals
+)
+
 fn bakWriteFlatPathConfig figVal dffVal =
 (
+	if bakIniPath == "" or bakIniPath == bakLegacyIniPath do
+	(
+		bakIniPath = bakGetWritableIniPath()
+	)
+
 	local f = createFile bakIniPath
+	if f == undefined then
+	(
+		local fallback = ""
+		try (fallback = bakTryWritableIniInDir (getDir #temp)) catch (fallback = "")
+		if fallback != "" then
+		(
+			bakIniPath = fallback
+			f = createFile bakIniPath
+		)
+	)
+
 	if f != undefined then
 	(
 		format "FigureFile=%\n" (bakPathToConfig figVal) to:f
@@ -159,8 +247,10 @@ fn bakWriteFlatPathConfig figVal dffVal =
 
 fn bakLoadIniPaths =
 (
-	local figVal = getINISetting bakIniPath "Paths" "FigureFile"
-	local dffVal = getINISetting bakIniPath "Paths" "CharacterDFF"
+	bakIniPath = bakGetWritableIniPath()
+	format "[AnimBake] INI path: %\n" bakIniPath
+	local figVal = bakGetIniSettingMerged "Paths" "FigureFile"
+	local dffVal = bakGetIniSettingMerged "Paths" "CharacterDFF"
 	local flatVals = bakLoadFlatPathConfig()
 
 	if figVal == "" then figVal = flatVals[1]
