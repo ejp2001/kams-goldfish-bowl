@@ -553,6 +553,29 @@ fn bakGetCurrentBipedAnimRange bipRoot =
 	else interval rng[1] rng[2]
 )
 
+fn bakGetCurrentBipedAnimSignature bipRoot =
+(
+	if bipRoot == undefined then return ""
+
+	local nodes = #(bipRoot)
+	for pair in GTA_BONEID_BIP_MAP do
+	(
+		local bn = bakResolveBipNode pair[2] bipRoot
+		if bn != undefined and (findItem nodes bn) == 0 then append nodes bn
+	)
+
+	local totalKeys = 0
+	for n in nodes do
+	(
+		if isProperty n #transform then try (totalKeys += numKeys n.transform.controller) catch ()
+		if isProperty n #rotation then try (totalKeys += numKeys n.rotation.controller) catch ()
+		if isProperty n #pos then try (totalKeys += numKeys n.pos.controller) catch ()
+	)
+
+	local rng = bakGetCurrentBipedAnimRange bipRoot
+	((rng.start as integer) as string) + "|" + ((rng.end as integer) as string) + "|" + (totalKeys as string)
+)
+
 fn bakPostLoadSetup figPath =
 (
 	local bipRoot = bakFindBipRoot()
@@ -590,7 +613,8 @@ fn bakPostLoadSetup figPath =
 		try (delete GTA_ANIMBAKE_ALIGN_DUMMY) catch ()
 	)
 
-	-- Dummy only anchors translation; keep identity rotation to avoid forcing heading.
+	-- Dummy anchors translation and provides a 180-degree Z rotation to flip the
+	-- animation for GTA's reversed coordinate convention.
 	local dmy = dummy name:"AnimBake_AlignDummy" boxsize:[0.75,0.75,0.75] wirecolor:(color 255 140 0)
 	dmy.pos = bipRoot.transform.row4
 	dmy.rotation = quat 0 0 0 1
@@ -600,8 +624,13 @@ fn bakPostLoadSetup figPath =
 	bipRoot.transform = rootTM
 
 	dmy.position = [0,0,0]
+	-- Rotate dummy 180 degrees around Z: GTA animations run reversed.
+	dmy.rotation = (eulerAngles 0 0 180) as quat
 	GTA_ANIMBAKE_ALIGN_DUMMY = dmy
 	animationRange = bakGetCurrentBipedAnimRange bipRoot
+	-- Select the dummy so the user can adjust it without accidentally
+	-- grabbing the biped root, which sits at the same position.
+	select dmy
 	format "[AnimBake] Post-load setup complete. Dummy: %\n" dmy.name
 	true
 )
@@ -1018,6 +1047,41 @@ fn bakBake startF endF saveBipPath =
 )
 
 -- ---------------------------------------------------------------------------
+--  Load Animation (manual motion-capture prep workflow)
+-- ---------------------------------------------------------------------------
+fn bakPrepareManualLoad =
+(
+	local bipRoot = bakFindBipRoot()
+	if bipRoot == undefined then
+	(
+		messageBox "No biped in scene. Run Setup Rig first." title:"Prepare Manual Load"
+		return false
+	)
+
+	-- 1. Unparent biped from dummy, preserving world transform.
+	if bipRoot.parent != undefined then
+	(
+		local worldTM = bipRoot.transform
+		bipRoot.parent = undefined
+		bipRoot.transform = worldTM
+	)
+
+	-- 2. Delete all align dummies.
+	local oldDummies = #()
+	for n in objects where matchPattern n.name pattern:"AnimBake_AlignDummy*" do
+		append oldDummies n
+	for n in oldDummies do if isValidNode n then try (delete n) catch ()
+	if GTA_ANIMBAKE_ALIGN_DUMMY != undefined and isValidNode GTA_ANIMBAKE_ALIGN_DUMMY then
+		try (delete GTA_ANIMBAKE_ALIGN_DUMMY) catch ()
+	GTA_ANIMBAKE_ALIGN_DUMMY = undefined
+
+	-- 3. Select the biped root so the user can open Motion Capture from Biped Motion.
+	select bipRoot
+	messageBox "Ready for manual animation load.\n\nNext:\n1. Open Biped > Motion panel > Motion Capture\n2. Load animation using Max's built-in dialog\n3. This tool will auto-run 'Reconfigure Biped and Center' when it detects new keys (manual button still available)." title:"Prepare Manual Load"
+	true
+)
+
+-- ---------------------------------------------------------------------------
 --  UI
 -- ---------------------------------------------------------------------------
 global GTA_AnimBake_Floater
@@ -1040,10 +1104,8 @@ rollout bakRoll "GTA Anim Bake"
 
 	group "2. Load Animation"
 	(
-		label lblLoadHint1 "Load animation onto BipGTA after setup. Then:" align:#left
-		button btnPostLoad "Reconfigure Biped and Center" width:240 height:28 align:#center tooltip:"Reapply .fig, create a small translation-only dummy, parent biped root, then move dummy to world origin."
-		label lblLoadHint3 "Unparent BipGTA and delete dummy before loading" align:#left
-		label lblLoadHint4 "any new animations - or re-run Setup Rig." align:#left
+		button btnPrepManualLoad "Prepare For Manual Load" width:240 height:28 align:#center tooltip:"Unparent biped, delete dummy, and select biped root so you can load in Max's Motion Capture dialog."
+		button btnPostLoad "Reconfigure Biped and Center" width:240 height:28 align:#center tooltip:"After manual load, reapply .fig, create translation-only dummy, and recenter to origin."
 	)
 
 	-- Bake
@@ -1059,9 +1121,13 @@ rollout bakRoll "GTA Anim Bake"
 		button btnBake "Bake To Selected Character" width:240 height:36 align:#center tooltip:"Sample BipGTA and write keys to GTA character bones"
 	)
 
+	timer tmrAutoPostLoad interval:750 active:false
+
 	-- State
 	local figPath = undefined
 	local dffPath = undefined
+	local waitForManualLoad = false
+	local preLoadSig = ""
 
 	on bakRoll open do (
 		local iniVals = bakLoadIniPaths()
@@ -1072,6 +1138,9 @@ rollout bakRoll "GTA Anim Bake"
 		local tpf = 4800 / frameRate
 		spStart.value = (animationRange.start as integer) / tpf
 		spEnd.value   = (animationRange.end   as integer) / tpf
+		waitForManualLoad = false
+		preLoadSig = ""
+		tmrAutoPostLoad.active = false
 	)
 
 	on btnPickFig pressed do (
@@ -1093,15 +1162,54 @@ rollout bakRoll "GTA Anim Bake"
 	)
 
 	on btnSetup pressed do (
+		waitForManualLoad = false
+		preLoadSig = ""
+		tmrAutoPostLoad.active = false
 		bakSetupRig figPath dffPath
 	)
 
+	on btnPrepManualLoad pressed do (
+		if bakPrepareManualLoad() then
+		(
+			local bipRoot = bakFindBipRoot()
+			preLoadSig = bakGetCurrentBipedAnimSignature bipRoot
+			waitForManualLoad = true
+			tmrAutoPostLoad.active = true
+		)
+	)
+
 	on btnPostLoad pressed do (
+		waitForManualLoad = false
+		preLoadSig = ""
+		tmrAutoPostLoad.active = false
 		if bakPostLoadSetup figPath then
 		(
 			local tpf = 4800 / frameRate
 			spStart.value = (animationRange.start as integer) / tpf
 			spEnd.value   = (animationRange.end   as integer) / tpf
+		)
+	)
+
+	on tmrAutoPostLoad tick do (
+		if not waitForManualLoad then return()
+
+		local bipRoot = bakFindBipRoot()
+		if bipRoot == undefined then return()
+
+		local curSig = bakGetCurrentBipedAnimSignature bipRoot
+		if curSig != "" and curSig != preLoadSig then
+		(
+			waitForManualLoad = false
+			preLoadSig = ""
+			tmrAutoPostLoad.active = false
+
+			if bakPostLoadSetup figPath then
+			(
+				local tpf = 4800 / frameRate
+				spStart.value = (animationRange.start as integer) / tpf
+				spEnd.value   = (animationRange.end   as integer) / tpf
+				format "[AnimBake] Detected new biped animation keys and auto-ran post-load setup.\n"
+			)
 		)
 	)
 
