@@ -20,6 +20,12 @@ if (cntLDffNow == undefined) then cntLDffNow = 0
 if (cntLDffMax == undefined) then cntLDffMax = 0
 if (DebugMode == undefined) then DebugMode = false
 
+-- Runtime fingerprint to verify which importer file is currently loaded in Max.
+global gDFFimpBuildTag = "DFFimp build 2026-04-27b"
+global gDFFimpLoadedFrom = getThisScriptFilename()
+global gLastSkinDetectInfo = ""
+format "[DFFimp] Loaded % from: %\n" gDFFimpBuildTag gDFFimpLoadedFrom
+
 /* ============================================================================
    UV ANIMATION IMPORT MODULE
    Automatically imports UV animation data from DFF and applies to materials
@@ -977,6 +983,46 @@ fn rSkinPLG f data_length Vert_count ver = (
 )
 --end fn rSkinPLG			--<B2>--
 --
+
+fn IsValidSkinData skinData vertCount chunkSize = (
+	if skinData == undefined then return false
+	if (classof skinData) != Array then return false
+	if skinData.count < 4 then return false
+
+	if ((classof skinData[1]) != Array) OR ((classof skinData[2]) != Array) OR ((classof skinData[3]) != Array) then return false
+	if skinData[1].count != vertCount then return false
+	if skinData[2].count != vertCount then return false
+
+	local boneCount = skinData[3].count
+	if boneCount <= 0 OR boneCount > 255 then return false
+
+	-- Bone indices and weights must be structurally sane.
+	for vi = 1 to vertCount do (
+		local bv = skinData[1][vi]
+		local bw = skinData[2][vi]
+		if (classof bv) != Array OR (classof bw) != Array then return false
+		if bv.count < 1 OR bv.count > 4 then return false
+		if bw.count != bv.count then return false
+
+		local wsum = 0.0
+		for wi = 1 to bv.count do (
+			if bv[wi] < 1 OR bv[wi] > boneCount then return false
+			if (classof bw[wi]) != Float AND (classof bw[wi]) != Integer then return false
+			local w = bw[wi] as float
+			if (w < -0.0001) OR (w > 1.0001) then return false
+			wsum += w
+		)
+		-- GTA skin weights should be near-normalized; reject obvious garbage.
+		if wsum <= 0.0001 OR wsum > 1.15 then return false
+	)
+
+	-- Minimal SA-compatible payload bound; helps reject random chunk misreads.
+	local minSkinBytes = (vertCount * 20) + (boneCount * 64) + 16
+	if chunkSize < minSkinBytes then return false
+
+	true
+)
+
 --1-----------------------
 -- Functions for Import --
 --------------------------
@@ -1943,6 +1989,8 @@ if DebugMode == true then (
 			local header = readLong f
             local string_length = readLong f #unsigned
             ver = readLong f		--Version            
+			local chunk_start = ftell f
+			local chunk_end = chunk_start + string_length
             
 			case header of (		
 				1294: (
@@ -1950,6 +1998,11 @@ if DebugMode == true then (
 					if isIplImport == false then pbUpdate()
 					tmp = rMaterialSplit DFFmesh f showdetail
 					if tmp == undefined then return undefined
+					-- Keep parser aligned even if rMaterialSplit consumed an unexpected amount.
+					if (ftell f) != chunk_end then (
+						if showdetail == true then format "\t\t\t\t[warn] MaterialSplit cursor drift: now %, expected %\n" (ftell f) chunk_end
+						fseek f chunk_end #seek_set
+					)
 				)
 				261: (
 					if showdetail == true then format "\t\t\t\tMorph(261) Size: %\n" string_length
@@ -1958,7 +2011,22 @@ if DebugMode == true then (
 				278: (
 					if showdetail == true then format "\t\t\t\tSkin(278) Size: %\n" string_length
 					if isIplImport == false then pbUpdate()
-					SkinData = rSkinPLG f string_length vert_count ver
+					local parsedSkinData = rSkinPLG f string_length vert_count ver
+					if IsValidSkinData parsedSkinData vert_count string_length then (
+						SkinData = parsedSkinData
+						local ibmCount = if (classof parsedSkinData[3] == Array) then parsedSkinData[3].count else -1
+						gLastSkinDetectInfo = "Skin(278) accepted | chunkSize=" + (string_length as string) + " | verts=" + (vert_count as string) + " | bones=" + (ibmCount as string) + " | pos=" + ((chunk_start - 12) as string)
+					) else (
+						gLastSkinDetectInfo = "Skin(278) rejected as invalid | chunkSize=" + (string_length as string) + " | verts=" + (vert_count as string) + " | pos=" + ((chunk_start - 12) as string)
+						if showdetail == true OR DebugMode == true then (
+							format "\t\t\t\t[warn] Ignoring invalid Skin(278) payload. size:% verts:% ibm:%\n" string_length vert_count (if (classof parsedSkinData == Array AND parsedSkinData.count >= 3 AND classof parsedSkinData[3] == Array) then parsedSkinData[3].count else -1)
+						)
+					)
+					-- Keep parser aligned if Skin payload parsing consumed less/more than declared.
+					if (ftell f) != chunk_end then (
+						if showdetail == true then format "\t\t\t\t[warn] Skin cursor drift: now %, expected %\n" (ftell f) chunk_end
+						fseek f chunk_end #seek_set
+					)
 				)
 				39056121: (
 					if isIplImport == false then pbUpdate()
@@ -2033,8 +2101,19 @@ fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname allowSkin
 			msh = rGeometry f Iscale mattype texEx showdetail 
 			if msh == undefined then (return undefined)
 			if (allowSkinImport == false) and (SkinData != undefined) then (
-				messageBox "Character model detected (Skin PLG found)!\n\nWorld Object IO blocks skinned DFF imports.\nPlease use Character IO (GTA_CHAR_IO.ms)." title:"Use Character IO"
-				return undefined
+				local ibmCount = if (classof SkinData == Array AND SkinData.count >= 3 AND classof SkinData[3] == Array) then SkinData[3].count else -1
+				local msg = "Character model detected (valid Skin PLG found)!\n\n"
+				msg += "Geometry index: " + (i as string) + " of " + (NumGeo as string) + "\n"
+				msg += "Geometry verts: " + (msh.numVerts as string) + "\n"
+				msg += "Skin bone count: " + (ibmCount as string) + "\n"
+				if gLastSkinDetectInfo != undefined and gLastSkinDetectInfo != "" then msg += "\n" + gLastSkinDetectInfo + "\n"
+				msg += "\nWorld Object IO normally blocks skinned DFF imports.\n"
+				msg += "Yes = debug-continue import anyway\nNo = cancel and use Character IO"
+				if queryBox msg title:"Use Character IO" then (
+					format "[DFFimp] DEBUG BYPASS: continuing World IO import despite valid Skin PLG. %\n" gLastSkinDetectInfo
+				) else (
+					return undefined
+				)
 			)
 			
 			append MshAry msh

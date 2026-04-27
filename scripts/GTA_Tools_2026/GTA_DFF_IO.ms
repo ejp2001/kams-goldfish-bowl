@@ -544,18 +544,7 @@ Group "Multi. Clump" (
 			clearlistener()
 			cntLDffNow = 0
 			cntLDffMax = 0
-			
-		-- Detect character model and redirect to Character IO
-		local isCharacter = hasSkinData gfname
-		
-		if isCharacter then (
-			fclose f
-			messageBox "Character model detected (Skin PLG found)!\n\nThis tool is for world objects and vehicles only.\n\nPlease use Character IO for character models.\nIt provides proper skinning, animation controls, and seamless export." title:"Use Character IO"
-			return undefined
-		)
-		
-		format "Importing world object...\n"
-		DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname) allowSkinImport:false
+			DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname) allowSkinImport:false
 		)
 	)--end on useclump
     
@@ -591,26 +580,7 @@ Group "Multi. Clump" (
 							if no_clump.count == 1 then (
 								clearlistener()
 								
-								-- Auto-detect Skin PLG (0x0116) to identify character models
-								local hasSkin = false
-								local savedPos = ftell f
-								fseek f 0 #seek_end
-								local fileEnd = ftell f
-								fseek f 0 #seek_set
-								-- Simple scan: look for Skin PLG chunk ID (0x0116)
-								while (ftell f) < (fileEnd - 4) and not hasSkin do (
-									local val = readLong f #unsigned
-									if val == 0x0116 then hasSkin = true
-								)
-								fseek f savedPos #seek_set
-								
-								if hasSkin then (
-									fclose f
-									messageBox "Character model detected (Skin PLG found)!\n\nWorld Object IO blocks skinned DFF imports.\nPlease use Character IO (GTA_CHAR_IO.ms)." title:"Use Character IO"
-									continue
-								)
-								
-							 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i]) allowSkinImport:false
+								 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i]) allowSkinImport:false
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (
@@ -646,18 +616,9 @@ Group "Multi. Clump" (
 							cntLDffNow = 0
 							cntLDffMax = 0
 							
-							-- Detect character model vs world object
-							local isCharacter = hasSkinData fname
-							
-							if isCharacter then (
-								fclose f
-								messageBox "Character model detected (Skin PLG found)!\n\nWorld Object IO blocks skinned DFF imports.\nPlease use Character IO (GTA_CHAR_IO.ms)." title:"Use Character IO"
-							) else (
-								format "Detected world object, using DFFin...\n"
-								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname) allowSkinImport:false
-								useclump.enabled = false
-								whichone.enabled = false
-							)
+							 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname) allowSkinImport:false
+							useclump.enabled = false
+							whichone.enabled = false
 						) else (
 							fclose f
 							whichone.range = [1,no_clump.count,1]
