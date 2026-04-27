@@ -544,7 +544,18 @@ Group "Multi. Clump" (
 			clearlistener()
 			cntLDffNow = 0
 			cntLDffMax = 0
-			DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname) allowSkinImport:false
+			if HasSkinPLG f then (
+				local skinMsg = "Character model detected (Skin PLG found).\n\n"
+				skinMsg += "World Object IO is for props, vehicles and buildings.\n"
+				skinMsg += "Use Character IO (GTA_CHAR_IO.ms) for proper character import.\n\n"
+				skinMsg += "Yes = import anyway (debug only)\nNo = cancel"
+				if (queryBox skinMsg title:"Use Character IO") == false then (
+					fclose f
+					f = undefined
+				)
+			)
+			if f != undefined then
+				DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile gfname)
 		)
 	)--end on useclump
     
@@ -580,7 +591,18 @@ Group "Multi. Clump" (
 							if no_clump.count == 1 then (
 								clearlistener()
 								
-								 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i]) allowSkinImport:false
+								if HasSkinPLG f then (
+									local skinMsg = "Character model detected (Skin PLG found).\n\n"
+									skinMsg += "World Object IO is for props, vehicles and buildings.\n"
+									skinMsg += "Use Character IO (GTA_CHAR_IO.ms) for proper character import.\n\n"
+									skinMsg += "Yes = import anyway (debug only)\nNo = cancel"
+									if (queryBox skinMsg title:"Use Character IO") == false then (
+										fclose f
+										f = undefined
+									)
+								)
+								if f != undefined then
+									 DFFin f 1.0 mattype.state texEx dummysize false DFFinPara.sdtl.checked (getFilenameFile fname[i])
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (
@@ -616,7 +638,18 @@ Group "Multi. Clump" (
 							cntLDffNow = 0
 							cntLDffMax = 0
 							
-							 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname) allowSkinImport:false
+							if HasSkinPLG f then (
+								local skinMsg = "Character model detected (Skin PLG found).\n\n"
+								skinMsg += "World Object IO is for props, vehicles and buildings.\n"
+								skinMsg += "Use Character IO (GTA_CHAR_IO.ms) for proper character import.\n\n"
+								skinMsg += "Yes = import anyway (debug only)\nNo = cancel"
+								if (queryBox skinMsg title:"Use Character IO") == false then (
+									fclose f
+									f = undefined
+								)
+							)
+							if f != undefined then
+								 DFFin f 1.0 mattype.state texEx dummysize true DFFinPara.sdtl.checked (getFilenameFile fname)
 							useclump.enabled = false
 							whichone.enabled = false
 						) else (

@@ -857,6 +857,48 @@ fn checkClump f = (
 )
 --end fn checkClump		--<C2>--
 --
+-- Scans chunk tree from current file position for Skin PLG (type 278).
+-- Returns true if a valid Skin PLG is found, false otherwise.
+-- Reseeks to the original position when done. No scene objects created.
+fn HasSkinPLG f = (
+	local startPos = ftell f
+	local found = false
+	fseek f 0 #seek_end
+	local fileEnd = ftell f
+	fseek f startPos #seek_set
+
+	-- RenderWare container chunk types: descend into these instead of skipping.
+	-- Path to Skin PLG: Clump(0x10) -> GeometryList(0x1A) -> Geometry(0x0F)
+	--                   -> Extension(0x03) -> SkinPLG(0x116)
+	local containerTypes = #(0x03, 0x06, 0x07, 0x08, 0x0E, 0x0F, 0x10, 0x11, 0x1A)
+
+	-- Walk chunk stream. Container chunks are descended into (don't skip their payload).
+	-- Leaf chunks are skipped. This naturally recurses through nested RW structure.
+	while (found == false) and ((ftell f) + 12 <= fileEnd) do (
+		local chunkType = readLong f #unsigned
+		local chunkSize = readLong f #unsigned
+		readLong f -- version, skip
+		local chunkEnd = (ftell f) + chunkSize
+		if chunkEnd > fileEnd then ( chunkEnd = fileEnd )
+
+		if chunkType == 278 then (
+			-- Skin PLG found
+			if chunkSize >= 4 then found = true
+			fseek f chunkEnd #seek_set
+		) else if (findItem containerTypes chunkType) > 0 then (
+			-- Container chunk: descend into payload (don't seek to chunkEnd)
+			()
+		) else (
+			-- Leaf chunk: skip payload
+			fseek f chunkEnd #seek_set
+		)
+	)
+
+	fseek f startPos #seek_set
+	return found
+)
+--end fn HasSkinPLG
+--
 --0---------------------------
 -- Functions for Bones & Skins
 ------------------------------
@@ -2059,7 +2101,7 @@ if DebugMode == true then (
 --M------------
 --Main Import--
 ---------------
-fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname allowSkinImport:true = (
+fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname = (
 	imp2dfxCount = 0
 	impHas2dfx = false
 	gUVAnimDict = #()  -- Clear UV animation dictionary for new import
@@ -2100,22 +2142,6 @@ fn DFFin f Iscale mattype texEx Dummysize autoskin showdetail setsname allowSkin
 			if isIplImport == false then pbUpdate()
 			msh = rGeometry f Iscale mattype texEx showdetail 
 			if msh == undefined then (return undefined)
-			if (allowSkinImport == false) and (SkinData != undefined) then (
-				local ibmCount = if (classof SkinData == Array AND SkinData.count >= 3 AND classof SkinData[3] == Array) then SkinData[3].count else -1
-				local msg = "Character model detected (valid Skin PLG found)!\n\n"
-				msg += "Geometry index: " + (i as string) + " of " + (NumGeo as string) + "\n"
-				msg += "Geometry verts: " + (msh.numVerts as string) + "\n"
-				msg += "Skin bone count: " + (ibmCount as string) + "\n"
-				if gLastSkinDetectInfo != undefined and gLastSkinDetectInfo != "" then msg += "\n" + gLastSkinDetectInfo + "\n"
-				msg += "\nWorld Object IO normally blocks skinned DFF imports.\n"
-				msg += "Yes = debug-continue import anyway\nNo = cancel and use Character IO"
-				if queryBox msg title:"Use Character IO" then (
-					format "[DFFimp] DEBUG BYPASS: continuing World IO import despite valid Skin PLG. %\n" gLastSkinDetectInfo
-				) else (
-					return undefined
-				)
-			)
-			
 			append MshAry msh
 		)
 		if isIplImport == false then pbUpdate()
