@@ -830,6 +830,7 @@ rollout DFFexPara "Export DFF" (
 		
 		group "Other Tools" (
 			button bModelInfo "Model channel Info >"  tooltip:"Show UV channels, vertex colors, and mesh statistics for selected object"
+			button bPrintIPL  "Print IPL line >"      tooltip:"Print GTA SA IPL INST line for selected object to Listener"
 		)		
 		
 		on noCOL changed state do (
@@ -1109,6 +1110,30 @@ rollout DFFexPara "Export DFF" (
 				on btn_close pressed do DestroyDialog  bModelInfo_rol 
 			)
 			createDialog bModelInfo_rol 
+		)
+
+		on bPrintIPL pressed do (
+			if $selection.count == 0 then (
+				messagebox "Select an object first." title:"Print IPL line"
+			) else (
+				local obj = selection[1]
+				local modelID  = getUserProp obj "ID"
+				local interior = getUserProp obj "Interior"
+				local lodIdx   = getUserProp obj "unknown01"
+				if modelID  == undefined then modelID  = 0
+				if interior == undefined then interior = 0
+				if lodIdx   == undefined then lodIdx   = -1
+				local Crot    = conjugate obj.rotation
+				local p       = obj.pos
+				local heading = (obj.rotation as eulerAngles).z
+				clearlistener()
+				format "-- % | heading: %°\n" obj.name heading
+				format "%, %, %, %, %, %, %, %, %, %, %\n" \
+					modelID obj.name interior \
+					p.x p.y p.z \
+					Crot.x Crot.y Crot.z Crot.w \
+					lodIdx
+			)
 		)
 
 	on colbase pressed do (
