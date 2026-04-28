@@ -553,6 +553,16 @@ fn bakGetCurrentBipedAnimRange bipRoot =
 	else interval rng[1] rng[2]
 )
 
+fn bakFormatAnimationLength rng =
+(
+if rng == undefined then return "0 frames"
+local startF = (rng.start as integer) / ticksPerFrame
+local endF = (rng.end as integer) / ticksPerFrame
+local len = (endF - startF + 1)
+if len < 0 then len = 0
+(len as string) + " frames"
+)
+
 fn bakGetCurrentBipedAnimSignature bipRoot =
 (
 	if bipRoot == undefined then return ""
@@ -615,6 +625,9 @@ fn bakPostLoadSetup figPath =
 
 	-- Dummy anchors translation and provides a 180-degree Z rotation to flip the
 	-- animation for GTA's reversed coordinate convention.
+	-- Move to frame 0 first so the biped is at its rest position, not wherever
+	-- the timeline happened to be when the button was clicked.
+	sliderTime = 0
 	local dmy = dummy name:"AnimBake_AlignDummy" boxsize:[0.75,0.75,0.75] wirecolor:(color 255 140 0)
 	dmy.pos = bipRoot.transform.row4
 	dmy.rotation = quat 0 0 0 1
@@ -717,163 +730,75 @@ fn bakSetBipHeight bipRoot h =
 )
 
 -- ---------------------------------------------------------------------------
---  Setup Rig
+--  Import Character DFF  (non-destructive: does not reset scene or create biped)
 -- ---------------------------------------------------------------------------
-fn bakSetupRig figPath dffPath =
+fn bakImportCharDFF dffPath =
 (
-	local rigDir   = bakScriptPath + "tools\\AnimRig\\"
-	bakSetLinearDefaultTangents()
-
-	-- User-requested hard reset: start from a clean scene every time.
-	try (resetMaxFile #noprompt) catch ()
-	GTA_ACTIVE_RIG_ROOT = undefined
-	GTA_ANIMBAKE_ALIGN_DUMMY = undefined
-
-	-- Clear existing animation sources/targets before creating a new setup.
-	-- Collect first; deleting while iterating scene can crash Max.
-	local deleteRoots = #()
-	for obj in objects do
+	if DFFin == undefined then
 	(
-		if classof obj == Biped_Object then
-		(
-			local r = obj.controller.rootNode
-			if (findItem deleteRoots r) == 0 then append deleteRoots r
-		)
-	)
-	for r in (bakFindRigRootsInScene()) do
-	(
-		if (findItem deleteRoots r) == 0 then append deleteRoots r
-	)
-	for r in deleteRoots do try (delete r) catch()
-	GTA_ACTIVE_RIG_ROOT = undefined
-
-	-- 1. Create biped
-	local bipObj = biped.createNew 0 0 [0,0,0] height:1.8328
-	if bipObj == undefined then (
-		messageBox "Failed to create biped." title:"Setup Rig"
+		messageBox "DFFin is undefined. CharDFFimp.ms may not have loaded." title:"Import Character"
 		return false
 	)
-	bipObj.name = "BipGTA"
-	local bipRoot = bipObj.controller.rootNode
 
-	-- 2. Load figure file
-	local figFile = if figPath != undefined then figPath else (rigDir + "BipGTA.fig")
-	if doesFileExist figFile then (
-		local prevFigureMode = bipRoot.controller.figureMode
-		local figOk = false
-		try
-		(
-			bipRoot.controller.figureMode = true
-			try ( biped.loadFigFile bipRoot.transform.controller figFile; figOk = true ) catch()
-			if not figOk do try ( biped.loadFigFile bipRoot.controller figFile; figOk = true ) catch()
-		)
-		catch
-		(
-			format "[AnimBake] fig load error: %\n" (getCurrentException())
-		)
-		try ( bipRoot.controller.figureMode = prevFigureMode ) catch ()
-
-		if not figOk then
-		(
-			messageBox "BipGTA.fig could not be applied. Biped may have wrong spine/neck structure." title:"Setup Rig"
-			return false
-		)
-	) else (
-		format "[AnimBake] WARNING: BipGTA.fig not found at %\n" figFile
-	)
-
-	-- 3. Import character DFF
-	local defaultDff = rigDir + "cj_plyr.dff"
-	if not doesFileExist defaultDff do defaultDff = rigDir + "animate.dff"
-	local dffFile = if dffPath != undefined then dffPath else defaultDff
-	if doesFileExist dffFile then (
-		-- CharDFFimp was already loaded at script startup; DFFin should always be defined.
-		if DFFin == undefined then
-		(
-			messageBox "DFFin is undefined." title:"Setup Rig"
-			return false
-		)
-
-		global LetsRockandRoll = true
-		local f = fopen dffFile "rb"
-		if f != undefined then (
-			local impErr = undefined
-			try
-			(
-				   -- Force StandardMaterial import by overriding global mattype
-				   global mattype
-				   local oldMatType = undefined
-				   if isProperty globals #mattype do oldMatType = mattype
-				   mattype = 2 -- force StandardMaterial (Character IO style)
-				global ANIMBAKE_FORCE_STDMTL
-				local oldForceStdMtl = if isProperty globals #ANIMBAKE_FORCE_STDMTL then ANIMBAKE_FORCE_STDMTL else undefined
-				ANIMBAKE_FORCE_STDMTL = true
-				DFFin f 1.0 2 ".png" 0.1 true false (getFilenameFile dffFile)
-				   if oldMatType != undefined then mattype = oldMatType else (execute "global mattype = undefined")
-				if oldForceStdMtl != undefined then ANIMBAKE_FORCE_STDMTL = oldForceStdMtl else (execute "global ANIMBAKE_FORCE_STDMTL = undefined")
-				   -- Force all imported character geometry to StandardMaterial.
-				   for obj in geometry do (
-					   if (matchPattern obj.name pattern:"*Normal*") or (matchPattern obj.name pattern:"*Root*") or (matchPattern obj.name pattern:"*Pelvis*") or (matchPattern obj.name pattern:"*Spine*") or (matchPattern obj.name pattern:"*Head*") or (matchPattern obj.name pattern:"*Clavicle*") or (matchPattern obj.name pattern:"*UpperArm*") or (matchPattern obj.name pattern:"*Forearm*") or (matchPattern obj.name pattern:"*Hand*") or (matchPattern obj.name pattern:"*Thigh*") or (matchPattern obj.name pattern:"*Calf*") or (matchPattern obj.name pattern:"*Foot*") or (matchPattern obj.name pattern:"*Toe*") then (
-						   obj.material = StandardMaterial()
-						   obj.material.diffuse = color 255 255 255
-						   obj.material.specular = color 26 26 26
-						   obj.material.specular_level = 10
-						   obj.material.glossiness = 0
-						   obj.material.soften = 0
-					   )
-				   )
-			)
-			catch
-			(
-				impErr = (getCurrentException() as string)
-			)
-			fclose f
-			if impErr != undefined then
-			(
-				messageBox ("DFF import failed:\n\n" + impErr) title:"Setup Rig"
-				return false
-			)
-			gc()
-		) else (
-			messageBox ("Cannot open: " + dffFile) title:"Setup Rig"
-			return false
-		)
-	) else (
-		format "[AnimBake] WARNING: animate.dff not found at %\n" dffFile
-	)
-
-	-- Prefer newly imported rig root (BoneID 0), then fallback to active/single rig resolve.
-	local gtaRoot = undefined
-	local postImportRoots = bakFindRigRootsInScene()
-	if postImportRoots.count == 1 then gtaRoot = postImportRoots[1]
-	if gtaRoot == undefined then gtaRoot = bakResolveActiveRigRoot showMessage:false
-	if gtaRoot != undefined then
+	local dffFile = dffPath
+	if dffFile == undefined or dffFile == "" or not doesFileExist dffFile then
 	(
-		GTA_ACTIVE_RIG_ROOT = gtaRoot
-		try
-		(
-			at time 0 biped.setTransform bipRoot #pos gtaRoot.transform.position true
-			at time 0 biped.setTransform bipRoot #rotation (gtaRoot.transform.rotation as eulerAngles) true
-		)
-		catch
-		(
-			format "[AnimBake] biped align warning: %\n" (getCurrentException())
-		)
+		messageBox ("DFF not found:\n" + (if dffFile != undefined then dffFile else "(none)")) title:"Import Character"
+		return false
 	)
 
-	format "[AnimBake] Rig setup complete.\n"
+	global LetsRockandRoll = true
+	local f = fopen dffFile "rb"
+	if f == undefined then
+	(
+		messageBox ("Cannot open: " + dffFile) title:"Import Character"
+		return false
+	)
+
+	local impErr = undefined
+	try
+	(
+		global mattype
+		local oldMatType = undefined
+		if isProperty globals #mattype do oldMatType = mattype
+		mattype = 2 -- force StandardMaterial (Character IO style)
+		global ANIMBAKE_FORCE_STDMTL
+		local oldForceStdMtl = if isProperty globals #ANIMBAKE_FORCE_STDMTL then ANIMBAKE_FORCE_STDMTL else undefined
+		ANIMBAKE_FORCE_STDMTL = true
+		DFFin f 1.0 2 ".png" 0.1 true false (getFilenameFile dffFile)
+		if oldMatType != undefined then mattype = oldMatType else (execute "global mattype = undefined")
+		if oldForceStdMtl != undefined then ANIMBAKE_FORCE_STDMTL = oldForceStdMtl else (execute "global ANIMBAKE_FORCE_STDMTL = undefined")
+	)
+	catch
+	(
+		impErr = (getCurrentException() as string)
+	)
+	fclose f
+
+	if impErr != undefined then
+	(
+		messageBox ("DFF import failed:\n\n" + impErr) title:"Import Character"
+		return false
+	)
+
+	-- Cache whichever rig root was just imported, if unambiguous.
+	local roots = bakFindRigRootsInScene()
+	if roots.count == 1 then GTA_ACTIVE_RIG_ROOT = roots[1]
+
+	gc()
+	format "[AnimBake] Character imported: %\n" dffFile
 	true
 )
 
 -- ---------------------------------------------------------------------------
 --  Bake
 -- ---------------------------------------------------------------------------
-fn bakBake startF endF saveBipPath =
+fn bakBake saveBipPath =
 (
-	-- Bake uses scene range by default; spinner values are ignored intentionally.
+	-- Bake uses the detected biped animation range.
 	local bipRoot = bakFindBipRoot()
 	if bipRoot == undefined then (
-		messageBox "No biped found in scene. Run Setup Rig first." title:"Bake"
+	messageBox "No biped found in scene. Create a biped and load an animation first." title:"Bake"
 		return false
 	)
 
@@ -921,9 +846,8 @@ fn bakBake startF endF saveBipPath =
 	bakClearRigAnimationKeys rigRoot
 	local bipRange = bakGetBipedAnimRange pairs bipRoot
 	animationRange = bipRange
-	local tpf = 4800 / frameRate
-	startF = (animationRange.start as integer) / tpf
-	endF = (animationRange.end as integer) / tpf
+	local startF = (animationRange.start as integer) / ticksPerFrame
+	local endF = (animationRange.end as integer) / ticksPerFrame
 
 	format "[AnimBake] Baking % pairs, frames % to %\n" pairs.count startF endF
 
@@ -1046,38 +970,48 @@ fn bakBake startF endF saveBipPath =
 	true
 )
 
+
 -- ---------------------------------------------------------------------------
---  Load Animation (manual motion-capture prep workflow)
+--  Create or Reset Biped  (works even when no biped exists in scene)
 -- ---------------------------------------------------------------------------
-fn bakPrepareManualLoad =
+fn bakCreateOrResetBiped figPath =
 (
-	local bipRoot = bakFindBipRoot()
-	if bipRoot == undefined then
-	(
-		messageBox "No biped in scene. Run Setup Rig first." title:"Prepare Manual Load"
-		return false
-	)
+	-- Remove all existing Biped_Object nodes
+	local bipObjs = for obj in objects where classof obj == Biped_Object collect obj
+	for obj in bipObjs do if isValidNode obj then try (delete obj) catch ()
 
-	-- 1. Unparent biped from dummy, preserving world transform.
-	if bipRoot.parent != undefined then
-	(
-		local worldTM = bipRoot.transform
-		bipRoot.parent = undefined
-		bipRoot.transform = worldTM
-	)
-
-	-- 2. Delete all align dummies.
-	local oldDummies = #()
-	for n in objects where matchPattern n.name pattern:"AnimBake_AlignDummy*" do
-		append oldDummies n
+	-- Remove align dummies
+	local oldDummies = for n in objects where matchPattern n.name pattern:"AnimBake_AlignDummy*" collect n
 	for n in oldDummies do if isValidNode n then try (delete n) catch ()
 	if GTA_ANIMBAKE_ALIGN_DUMMY != undefined and isValidNode GTA_ANIMBAKE_ALIGN_DUMMY then
 		try (delete GTA_ANIMBAKE_ALIGN_DUMMY) catch ()
 	GTA_ANIMBAKE_ALIGN_DUMMY = undefined
+	GTA_ACTIVE_RIG_ROOT = undefined
 
-	-- 3. Select the biped root so the user can open Motion Capture from Biped Motion.
-	select bipRoot
-	messageBox "Ready for manual animation load.\n\nNext:\n1. Open Biped > Motion panel > Motion Capture\n2. Load animation using Max's built-in dialog\n3. This tool will auto-run 'Reconfigure Biped and Center' when it detects new keys (manual button still available)." title:"Prepare Manual Load"
+	-- Create new biped at origin
+	-- biped.createNew <height> <angle> <pos> is the correct MaxScript API
+	local bipCOM = undefined
+	try ( bipCOM = biped.createNew 170 0 [0,0,0] ) catch ()
+	if bipCOM == undefined then (
+		messageBox "Failed to create biped.\n\nbiped.createNew returned undefined.\nCheck the MaxScript Listener for details." title:"Load/Reset Biped"
+		return false
+	)
+	local bipRoot = bipCOM.controller.rootNode
+
+	-- Apply .fig proportions to set correct GTA proportions
+	if figPath != undefined and figPath != "" and doesFileExist figPath then (
+		local rescaleOK = bakRescaleToFig figPath bipRoot
+		if not rescaleOK then format "[AnimBake] WARNING: fig rescale failed; continuing.\n"
+	) else if figPath != undefined and figPath != "" then (
+		format "[AnimBake] WARNING: fig file not found: %\n" figPath
+	)
+
+	-- Explicitly re-centre biped at world origin (fig load can shift position)
+	try ( in coordsys world bipCOM.pos = [0,0,0] ) catch ()
+
+	-- Select biped COM so user can load animation directly via Motion panel
+	select bipCOM
+	format "[AnimBake] Fresh biped created at world origin. Load an animation, then click 'Apply Fig && Center Biped'.\n"
 	true
 )
 
@@ -1088,154 +1022,122 @@ global GTA_AnimBake_Floater
 
 rollout bakRoll "GTA Anim Bake"
 (
-	-- Setup
-	group "1. Rig Setup"
+	-- 1. Setup
+	group "1. Setup"
 	(
 		label lblFig "Biped Figure File (*.fig):" align:#left
 		editText txtFig "" fieldwidth:210 readOnly:true
 		button btnPickFig "..." width:25 height:17 align:#right offset:[0,-21] tooltip:"Pick BipGTA.fig"
+		button btnResetBiped "Load / Reset Biped" width:240 height:28 align:#center tooltip:"Delete any existing biped and align dummy; create a fresh biped at world origin and apply the selected .fig."
 
-		label lblDff "GTA Target Character (*.dff):" align:#left
+		label lblDff "Character DFF (*.dff):" align:#left offset:[0,4]
 		editText txtDff "" fieldwidth:210 readOnly:true
 		button btnPickDff "..." width:25 height:17 align:#right offset:[0,-21] tooltip:"Pick GTA character DFF"
-
-		button btnSetup "Setup Rig" width:240 height:28 align:#center tooltip:"Create BipGTA biped and import GTA character"
+		button btnImportDff "Import GTA Character DFF" width:240 height:22 align:#center tooltip:"Import GTA character DFF into the current scene"
 	)
 
-	group "2. Load Animation"
+	-- 2. Animation
+	group "2. Animation"
 	(
-		button btnPrepManualLoad "Prepare For Manual Load" width:240 height:28 align:#center tooltip:"Unparent biped, delete dummy, and select biped root so you can load in Max's Motion Capture dialog."
-		button btnPostLoad "Reconfigure Biped and Center" width:240 height:28 align:#center tooltip:"After manual load, reapply .fig, create translation-only dummy, and recenter to origin."
+		button btnLoadAnim "How to load animation (click for help)" width:240 height:22 align:#center tooltip:"Instructions for loading a BIP or motion capture animation onto the biped"
+		button btnApplyFig "Apply Fig && Center Biped" width:240 height:28 align:#center tooltip:"Re-apply .fig proportions and re-centre biped under align dummy."
+		editText txtAnimLen "Animation length:" fieldwidth:100 readOnly:true align:#right offset:[0,2]
 	)
 
-	-- Bake
-	group "3. Bake Animation"
+	-- 3. Bake
+	group "3. Bake"
 	(
-		label lblRange "Frame range:" align:#left across:3
-		spinner spStart "" type:#integer fieldwidth:52 range:[-100000,100000,0]
-		spinner spEnd   "to" type:#integer fieldwidth:52 range:[-100000,100000,100]
-
-		button btnFromScene "Use Scene Range" width:120 height:17 align:#left across:2
+		button btnBake "Bake To Selected Character" width:240 height:36 align:#center tooltip:"Sample biped and write keys to GTA character bones"
 		checkbox chkSaveBip "Save .bip" align:#right checked:false
-
-		button btnBake "Bake To Selected Character" width:240 height:36 align:#center tooltip:"Sample BipGTA and write keys to GTA character bones"
 	)
-
-	timer tmrAutoPostLoad interval:750 active:false
 
 	-- State
 	local figPath = undefined
 	local dffPath = undefined
-	local waitForManualLoad = false
-	local preLoadSig = ""
 
-	on bakRoll open do (
+	on bakRoll open do
+	(
 		local iniVals = bakLoadIniPaths()
 		figPath = iniVals[1]
 		dffPath = iniVals[2]
 		txtFig.text = figPath
 		txtDff.text = dffPath
-		local tpf = 4800 / frameRate
-		spStart.value = (animationRange.start as integer) / tpf
-		spEnd.value   = (animationRange.end   as integer) / tpf
-		waitForManualLoad = false
-		preLoadSig = ""
-		tmrAutoPostLoad.active = false
+		txtAnimLen.text = bakFormatAnimationLength animationRange
 	)
 
-	on btnPickFig pressed do (
+	on btnPickFig pressed do
+	(
 		local p = getOpenFileName caption:"Choose a biped figure file (*.fig)" types:"Biped Figure File (*.fig)|*.fig|"
-		if p != undefined then (
+		if p != undefined then
+		(
 			figPath = p
 			txtFig.text = p
 			bakSaveIniPaths figPath dffPath
 		)
 	)
 
-	on btnPickDff pressed do (
+	on btnPickDff pressed do
+	(
 		local p = getOpenFileName caption:"Choose GTA character DFF (*.dff)" types:"Character DFF (*.dff)|*.dff|"
-		if p != undefined then (
+		if p != undefined then
+		(
 			dffPath = p
 			txtDff.text = p
 			bakSaveIniPaths figPath dffPath
 		)
 	)
 
-	on btnSetup pressed do (
-		waitForManualLoad = false
-		preLoadSig = ""
-		tmrAutoPostLoad.active = false
-		bakSetupRig figPath dffPath
+	on btnImportDff pressed do
+	(
+		bakImportCharDFF dffPath
 	)
 
-	on btnPrepManualLoad pressed do (
-		if bakPrepareManualLoad() then
-		(
-			local bipRoot = bakFindBipRoot()
-			preLoadSig = bakGetCurrentBipedAnimSignature bipRoot
-			waitForManualLoad = true
-			tmrAutoPostLoad.active = true
-		)
+	on btnResetBiped pressed do
+	(
+		if bakCreateOrResetBiped figPath then
+			txtAnimLen.text = bakFormatAnimationLength animationRange
 	)
 
-	on btnPostLoad pressed do (
-		waitForManualLoad = false
-		preLoadSig = ""
-		tmrAutoPostLoad.active = false
+	on btnApplyFig pressed do
+	(
 		if bakPostLoadSetup figPath then
-		(
-			local tpf = 4800 / frameRate
-			spStart.value = (animationRange.start as integer) / tpf
-			spEnd.value   = (animationRange.end   as integer) / tpf
-		)
+			txtAnimLen.text = bakFormatAnimationLength animationRange
 	)
 
-	on tmrAutoPostLoad tick do (
-		if not waitForManualLoad then return()
-
-		local bipRoot = bakFindBipRoot()
-		if bipRoot == undefined then return()
-
-		local curSig = bakGetCurrentBipedAnimSignature bipRoot
-		if curSig != "" and curSig != preLoadSig then
-		(
-			waitForManualLoad = false
-			preLoadSig = ""
-			tmrAutoPostLoad.active = false
-
-			if bakPostLoadSetup figPath then
-			(
-				local tpf = 4800 / frameRate
-				spStart.value = (animationRange.start as integer) / tpf
-				spEnd.value   = (animationRange.end   as integer) / tpf
-				format "[AnimBake] Detected new biped animation keys and auto-ran post-load setup.\n"
-			)
-		)
+	on btnLoadAnim pressed do
+	(
+		messageBox ("To load an animation onto the biped:\n\n" + \
+			"Option A — BIP file:\n" + \
+			"  Select the biped COM (BipGTA or Bip01).\n" + \
+			"  Motion panel > Biped rollout > Load File (.bip).\n\n" + \
+			"Option B — Motion capture (.bvh / .csm / .htr etc):\n" + \
+			"  Select the biped COM.\n" + \
+			"  Motion panel > Biped rollout > Motion Capture.\n\n" + \
+			"After loading, click \"Apply Fig && Center Biped\" to\n" + \
+			"restore GTA proportions and re-centre the rig.") \
+			title:"How to load animation"
 	)
 
-	on btnFromScene pressed do (
-		local tpf = 4800 / frameRate
-		spStart.value = (animationRange.start as integer) / tpf
-		spEnd.value   = (animationRange.end   as integer) / tpf
-	)
-
-	on btnBake pressed do (
+	on btnBake pressed do
+	(
 		local savePath = undefined
-		if chkSaveBip.checked then (
+		if chkSaveBip.checked then
+		(
 			savePath = getSaveFileName caption:"Save Source BIP" types:"Biped Animation (*.bip)|*.bip|"
 			if savePath == undefined then return()
 			if (getFileNameType savePath) != ".bip" then savePath += ".bip"
 		)
-		local bakeOK = bakBake spStart.value spEnd.value savePath
-		if bakeOK then (
-			local tpf = 4800 / frameRate
-			spStart.value = (animationRange.start as integer) / tpf
-			spEnd.value   = (animationRange.end   as integer) / tpf
-		)
+		local bakeOK = bakBake savePath
+		if bakeOK then
+			txtAnimLen.text = bakFormatAnimationLength animationRange
 	)
 )
 
 -- Open floater
 if GTA_AnimBake_Floater != undefined then ( try (closeRolloutFloater GTA_AnimBake_Floater) catch () )
-GTA_AnimBake_Floater = newRolloutFloater "GTA Anim Bake" 280 392
+GTA_AnimBake_Floater = newRolloutFloater "GTA Anim Bake" 280 400
 addRollout bakRoll GTA_AnimBake_Floater
+
+
+
+
